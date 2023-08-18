@@ -5,18 +5,19 @@ import pytorch_lightning as pl
 import torch
 
 
-class SinusoidEncoding(pl.LightningModule):
-    def __init__(self, hidden_dim, max_len=5000):
+class SinusoidEncoder(pl.LightningModule):
+    def __init__(self, embedding_dim, max_len=5000):
         super().__init__()
-        self.hidden_dim = hidden_dim
+        self.embedding_dim = embedding_dim
         self.max_len = max_len
 
     def positional_encoding(self, x):
         position = torch.arange(0, self.max_len, dtype=torch.float, device=x.device).unsqueeze(1)
         div_term = torch.exp(
-            torch.arange(0, self.hidden_dim, 2, dtype=torch.float, device=x.device) * (-math.log(10000.0) / self.hidden_dim)
+            torch.arange(0, self.embedding_dim, 2, dtype=torch.float, device=x.device) * (-math.log(10000.0) / self.embedding_dim)
         )
-        pos_enc = torch.zeros(self.max_len, self.hidden_dim, device=x.device)
+        print(div_term.shape)
+        pos_enc = torch.zeros(self.max_len, self.embedding_dim, device=x.device)
         pos_enc[:, 0::2] = torch.sin(position * div_term)
         pos_enc[:, 1::2] = torch.cos(position * div_term)
         return pos_enc
@@ -30,10 +31,10 @@ class SinusoidEncoding(pl.LightningModule):
 class TestSinusoidEncoding(unittest.TestCase):
     def test_create_embedding(self):
         batch = 1
-        dim = 8
+        embedding_dim = 8
         seq_len = 3
-        x = torch.zeros(batch, seq_len, dim)
-        encoding = SinusoidEncoding(dim).forward(x)
+        x = torch.zeros(batch, seq_len, embedding_dim)
+        encoding = SinusoidEncoder(embedding_dim).forward(x)
         expected = torch.Tensor(
             [
                 [
@@ -74,10 +75,10 @@ class TestSinusoidEncoding(unittest.TestCase):
 
     def test_create_embedding_multi_batch(self):
         batch = 2
-        dim = 8
+        embedding_dim = 8
         seq_len = 3
-        x = torch.zeros(batch, seq_len, dim)
-        encoding = SinusoidEncoding(dim).forward(x)
+        x = torch.zeros(batch, seq_len, embedding_dim)
+        encoding = SinusoidEncoder(embedding_dim).forward(x)
         expected = torch.Tensor(
             [
                 [
