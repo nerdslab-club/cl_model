@@ -7,6 +7,7 @@ from torch import nn
 from labml.logger import inspect
 from labml_nn.transformers.mha import MultiHeadAttention
 
+
 # Convert for Attention with Bidirectional Biases
 def get_slopes(n_heads: int):
     n = 2 ** math.floor(math.log2(n_heads))
@@ -68,11 +69,14 @@ class AlibiMultiHeadAttention(MultiHeadAttention):
         # To cache AliBi the biases
         self.alibi_biases = None
 
-    def forward(self, *,
-                query: torch.Tensor,
-                key: torch.Tensor,
-                value: torch.Tensor,
-                mask: Optional[torch.Tensor] = None):
+    def forward(
+        self,
+        *,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        value: torch.Tensor,
+        mask: Optional[torch.Tensor] = None
+    ):
         """
         `query`, `key` and `value` are the tensors that store
         collection of *query*, *key* and *value* vectors.
@@ -117,7 +121,7 @@ class AlibiMultiHeadAttention(MultiHeadAttention):
         scores += self.alibi_biases[:seq_len, :seq_len, None, :]
 
         # Apply mask
-        scores = scores.masked_fill(mask == 0, float('-inf'))
+        scores = scores.masked_fill(mask == 0, float("-inf"))
 
         # $softmax$ attention along the key sequence dimension
         # $\underset{seq}{softmax}\Bigg(\frac{Q K^\top}{\sqrt{d_k}}\Bigg)$
@@ -150,5 +154,5 @@ def _test_alibi():
     inspect(get_alibi_biases(12, mask)[:, :, 3], _n=-1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     _test_alibi()

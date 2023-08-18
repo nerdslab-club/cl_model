@@ -4,7 +4,6 @@ from torch import nn
 
 
 class RotaryPositionalEncoder(nn.Module):
-
     def __init__(self, d: int, base: int = 10_000):
         """
         * `d` is the number of features $d$
@@ -29,13 +28,15 @@ class RotaryPositionalEncoder(nn.Module):
         seq_len = x.shape[0]
 
         # $\Theta = {\theta_i = 10000^{-\frac{2(i-1)}{d}}, i \in [1, 2, ..., \frac{d}{2}]}$
-        theta = 1. / (self.base ** (torch.arange(0, self.d, 2).float() / self.d)).to(x.device)
+        theta = 1.0 / (self.base ** (torch.arange(0, self.d, 2).float() / self.d)).to(
+            x.device
+        )
 
         # Create position indexes `[0, 1, ..., seq_len - 1]`
         seq_idx = torch.arange(seq_len, device=x.device).float().to(x.device)
 
         # Calculate the product of position index and $\theta_i$
-        idx_theta = torch.einsum('n,d->nd', seq_idx, theta)
+        idx_theta = torch.einsum("n,d->nd", seq_idx, theta)
 
         # Concatenate so that for row $m$ we have
         # $[m \theta_0, m \theta_1, ..., m \theta_{\frac{d}{2}}, m \theta_0, m \theta_1, ..., m \theta_{\frac{d}{2}}]$
@@ -53,10 +54,12 @@ class RotaryPositionalEncoder(nn.Module):
     def forward(self, x: torch.Tensor):
         self._build_cache(x)
 
-        x_rope, x_pass = x[..., :self.d], x[..., self.d:]
+        x_rope, x_pass = x[..., : self.d], x[..., self.d :]
 
         neg_half_x = self._neg_half(x_rope)
-        x_rope = (x_rope * self.cos_cached[:x.shape[0]]) + (neg_half_x * self.sin_cached[:x.shape[0]])
+        x_rope = (x_rope * self.cos_cached[: x.shape[0]]) + (
+            neg_half_x * self.sin_cached[: x.shape[0]]
+        )
 
         return torch.cat((x_rope, x_pass), dim=-1)
 
@@ -73,5 +76,5 @@ def _test_rotary():
     inspect(rotary_pe(x))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     _test_rotary()

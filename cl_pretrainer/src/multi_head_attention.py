@@ -22,7 +22,7 @@ class MultiHeadAttention(nn.Module):
         self._reset_parameters()
 
     def _reset_parameters(self):
-        """ Weight initialization taken from the UvA DL1 PyTorch Transformer tutorial. """
+        """Weight initialization taken from the UvA DL1 PyTorch Transformer tutorial."""
         nn.init.xavier_uniform_(self.qkv_proj.weight)
         nn.init.xavier_uniform_(self.o_proj.weight)
 
@@ -97,7 +97,9 @@ class MultiHeadAttention(nn.Module):
         return q, k, v
 
     def _cross_attention_projection(
-        self, encoder_hidden_states: torch.Tensor, decoder_hidden_states: torch.Tensor,
+        self,
+        encoder_hidden_states: torch.Tensor,
+        decoder_hidden_states: torch.Tensor,
     ):
         """
         Projects decoder hidden states into query vectors and encoder hidden states into key and value vectors.
@@ -167,7 +169,10 @@ class MultiHeadAttention(nn.Module):
         # Compute attention logits. Dot product between each query and key vector, through one matrix multiplication.
         # Results in un-normalized attention scores for each position's query vector to each position's key vector
         # Result is (batch_size, num_heads, seq_length, seq_length)
-        attn_logits = torch.matmul(q, torch.transpose(k, -2, -1),)
+        attn_logits = torch.matmul(
+            q,
+            torch.transpose(k, -2, -1),
+        )
 
         # Scale logits by constant to create less spiky softmax distribution
         attn_logits = attn_logits / math.sqrt(q.size()[-1])
@@ -330,8 +335,16 @@ class TestMultiHeadAttention(unittest.TestCase):
             torch.BoolTensor(
                 [
                     [
-                        [[True, True, True], [True, True, True], [True, True, True],],
-                        [[True, True, True], [True, True, True], [True, True, True],],
+                        [
+                            [True, True, True],
+                            [True, True, True],
+                            [True, True, True],
+                        ],
+                        [
+                            [True, True, True],
+                            [True, True, True],
+                            [True, True, True],
+                        ],
                     ],
                     [
                         [

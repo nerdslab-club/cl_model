@@ -44,7 +44,7 @@ class TransformerDecoder(nn.Module):
             self.output_layer.weight = nn.Parameter(self.embed.weight)
 
     def _reset_parameters(self):
-        """ Perform xavier weight initialization"""
+        """Perform xavier weight initialization"""
         for p in self.parameters():
             if p.dim() > 1:
                 xavier_uniform_(p)
@@ -90,7 +90,9 @@ class TransformerDecoderBlock(nn.Module):
         self.cross_mha = MultiHeadAttention(hidden_dim, num_heads)
         self.self_mha = MultiHeadAttention(hidden_dim, num_heads)
         self.feed_forward = nn.Sequential(
-            nn.Linear(hidden_dim, ff_dim), nn.ReLU(), nn.Linear(ff_dim, hidden_dim),
+            nn.Linear(hidden_dim, ff_dim),
+            nn.ReLU(),
+            nn.Linear(ff_dim, hidden_dim),
         )
 
         self.dropout1 = nn.Dropout(p=dropout_p)

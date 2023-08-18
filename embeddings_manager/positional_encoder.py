@@ -12,9 +12,12 @@ class SinusoidEncoder(pl.LightningModule):
         self.max_len = max_len
 
     def positional_encoding(self, x):
-        position = torch.arange(0, self.max_len, dtype=torch.float, device=x.device).unsqueeze(1)
+        position = torch.arange(
+            0, self.max_len, dtype=torch.float, device=x.device
+        ).unsqueeze(1)
         div_term = torch.exp(
-            torch.arange(0, self.embedding_dim, 2, dtype=torch.float, device=x.device) * (-math.log(10000.0) / self.embedding_dim)
+            torch.arange(0, self.embedding_dim, 2, dtype=torch.float, device=x.device)
+            * (-math.log(10000.0) / self.embedding_dim)
         )
         print(div_term.shape)
         pos_enc = torch.zeros(self.max_len, self.embedding_dim, device=x.device)

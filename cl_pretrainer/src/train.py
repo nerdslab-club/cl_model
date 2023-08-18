@@ -149,7 +149,10 @@ class TestTransformerTraining(unittest.TestCase):
             transformer.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9
         )
         scheduler = NoamOpt(
-            transformer.hidden_dim, factor=1, warmup=400, optimizer=optimizer,
+            transformer.hidden_dim,
+            factor=1,
+            warmup=400,
+            optimizer=optimizer,
         )
         criterion = nn.CrossEntropyLoss()
 

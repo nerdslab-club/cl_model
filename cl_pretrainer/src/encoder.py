@@ -64,7 +64,9 @@ class EncoderBlock(nn.Module):
         super().__init__()
         self.self_mha = MultiHeadAttention(hidden_dim, num_heads)
         self.feed_forward = nn.Sequential(
-            nn.Linear(hidden_dim, ff_dim), nn.ReLU(), nn.Linear(ff_dim, hidden_dim),
+            nn.Linear(hidden_dim, ff_dim),
+            nn.ReLU(),
+            nn.Linear(ff_dim, hidden_dim),
         )
 
         self.dropout1 = nn.Dropout(p=dropout_p)

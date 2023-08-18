@@ -86,7 +86,8 @@ class TestUtils(unittest.TestCase):
     def test_construct_future_mask_first_decoding_step(self):
         mask = construct_future_mask(1)
         torch.testing.assert_close(
-            mask, torch.BoolTensor([[True]]),
+            mask,
+            torch.BoolTensor([[True]]),
         )
 
     def test_construct_batches(self):
