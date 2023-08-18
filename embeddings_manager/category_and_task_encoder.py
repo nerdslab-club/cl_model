@@ -9,16 +9,13 @@ from cl_data.src.constants import (
     CategoryType,
     CategorySubType,
     CategorySubSubType,
+    Constants,
 )
 
 
 class CategoryAndTaskEncoder:
     def __init__(
-        self,
-        category_map: dict,
-        task_type: PretrainTasks | TaskTypes,
-        desired_length=768,
-        sample_rate=1024,
+        self, desired_length=768, sample_rate=1024, d_type=torch.float, device="cpu"
     ):
         self.desired_length = desired_length
         self.sample_rate = sample_rate
@@ -30,28 +27,45 @@ class CategoryAndTaskEncoder:
         # Modulations
         self.modulations = [5, 9, 15, 21, 28, 36, 45, 55, 66, 78, 91]
 
-        # Initialize signals
-        self.signals = []
-        for freq, amp in zip(self.base_frequencies, self.amplitudes):
-            signal = amp * np.sin(
-                2 * np.pi * freq * np.linspace(0, 1, self.desired_length)
-            )
-            self.signals.append(signal)
+        self.d_type = d_type
+        self.device = device
 
-        # Modulate the signals based on category_map and task_type
-        self.modulate_signals(category_map, task_type)
+    def categorical_encoding(
+        self,
+        category_map: dict,
+        task_type: PretrainTasks | TaskTypes,
+    ):
+        category_signal = self.__get_category_signal(
+            category_map[Constants.CATEGORY_TYPE],
+        )
+        sub_category_signal = self.__get_sub_category_signal(
+            category_map[Constants.CATEGORY_SUB_TYPE],
+        )
+        sub_sub_category_signal = self.__get_category_signal(
+            category_map[Constants.CATEGORY_SUB_SUB_TYPE],
+        )
+        task_signal = self.__get_task_signal(task_type)
+        combined_signal = (
+            category_signal
+            + sub_category_signal
+            + sub_sub_category_signal
+            + task_signal
+        )
 
-        # Combine the modulated signals
-        self.combined_signal = np.sum(self.signals, axis=0)
-        self.combined_signal /= np.max(np.abs(self.combined_signal))
+        # Normalize the tensor
+        normalized_tensor = (
+            combined_signal - combined_signal.mean()
+        ) / combined_signal.std()
+        return normalized_tensor
 
-    def categorical_encoding(self, x):
+    def forward(self, token_embedding: Tensor):
+        # TODO
         pass
 
-    def forward(self, x):
-        pass
-
-    def get_category_signal(self, category: CategoryType) -> Tensor:
+    def __get_category_signal(
+        self,
+        category: CategoryType,
+    ) -> Tensor:
         modulation_freq = self.__get_category_modulation_frequency(category)
 
         combined_freq = self.base_frequencies[0] + modulation_freq
@@ -60,7 +74,10 @@ class CategoryAndTaskEncoder:
             raise ValueError("Sampling rate is too low to capture the signal.")
 
         # Generate time values
-        t = torch.arange(0, self.desired_length) / self.sample_rate
+        t = (
+            torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
+            / self.sample_rate
+        )
 
         # Generate modulated sine signal
         signal = self.amplitudes[0] * torch.sin(2 * np.pi * combined_freq * t)
@@ -75,14 +92,18 @@ class CategoryAndTaskEncoder:
             raise ValueError("Sampling rate is too low to capture the signal.")
 
         # Generate time values
-        t = torch.arange(0, self.desired_length) / self.sample_rate
+        t = (
+            torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
+            / self.sample_rate
+        )
 
         # Generate modulated sine signal
         signal = self.amplitudes[1] * torch.cos(2 * np.pi * combined_freq * t)
         return signal
 
     def __get_sub_sub_category_signal(
-        self, sub_sub_category: CategorySubSubType
+        self,
+        sub_sub_category: CategorySubSubType,
     ) -> Tensor:
         modulation_freq = self.__get_sub_sub_category_modulation_frequency(
             sub_sub_category
@@ -94,7 +115,10 @@ class CategoryAndTaskEncoder:
             raise ValueError("Sampling rate is too low to capture the signal.")
 
         # Generate time values
-        t = torch.arange(0, self.desired_length) / self.sample_rate
+        t = (
+            torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
+            / self.sample_rate
+        )
 
         # Generate modulated sine signal
         signal = self.amplitudes[2] * torch.sin(2 * np.pi * combined_freq * t)
@@ -109,7 +133,10 @@ class CategoryAndTaskEncoder:
             raise ValueError("Sampling rate is too low to capture the signal.")
 
         # Generate time values
-        t = torch.arange(0, self.desired_length) / self.sample_rate
+        t = (
+            torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
+            / self.sample_rate
+        )
 
         # Generate modulated sine signal
         signal = self.amplitudes[3] * torch.cos(2 * np.pi * combined_freq * t)
@@ -236,11 +263,12 @@ class CategoryAndTaskEncoder:
 
 
 if __name__ == "__main__":
-    category_and_task_encoder = CategoryAndTaskEncoder(
-        {}, TaskTypes.NL_TO_FUNC_TRANSLATION
-    )
-    signal = category_and_task_encoder.get_category_signal(
-        CategoryType.FUNCTION,
-    )
-    CategoryAndTaskEncoder.plot_provider_signal(768, signal)
-    CategoryAndTaskEncoder.plot_provider_signal_fft(1024, signal)
+    # category_and_task_encoder = CategoryAndTaskEncoder(
+    #     {}, TaskTypes.NL_TO_FUNC_TRANSLATION
+    # )
+    # signal = category_and_task_encoder.__get_category_signal(
+    #     CategoryType.FUNCTION,
+    # )
+    # CategoryAndTaskEncoder.plot_provider_signal(768, signal)
+    # CategoryAndTaskEncoder.plot_provider_signal_fft(1024, signal)
+    pass
