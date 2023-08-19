@@ -202,7 +202,7 @@ class CategoryAndTaskEncoder:
             return self.modulations[5]
 
     @staticmethod
-    def plot_provider_signal(desired_length: int, provided_signal: list):
+    def plot_provider_signal(desired_length: int, provided_signal: Tensor):
         plt.figure(figsize=(10, 6))
         plt.plot(np.linspace(0, 1, desired_length), provided_signal)
         plt.title("Provider Modulated Signal")
@@ -210,6 +210,13 @@ class CategoryAndTaskEncoder:
         plt.ylabel("Amplitude")
         plt.grid()
         plt.show()
+
+    @staticmethod
+    def frequency_encoding(categorical_embedding: Tensor) -> Tensor:
+        signal_np = categorical_embedding.numpy()
+        fft_result = np.abs(np.fft.fft(signal_np))
+        frequency_embedding = torch.tensor(fft_result)
+        return frequency_embedding
 
     @staticmethod
     def plot_provider_signal_fft(sample_rate: int, provider_signal: Tensor):
@@ -233,11 +240,18 @@ class CategoryAndTaskEncoder:
 
 if __name__ == "__main__":
     category_and_task_encoder = CategoryAndTaskEncoder()
+    category_map = {'type': 'function', 'subType': 'bool', 'subSubType': 'none'}
+    task_type = TaskTypes.FUNC_TO_NL_TRANSLATION.value
     token_embedding = torch.rand(768)
-    print(token_embedding.shape)
-    signal = category_and_task_encoder.forward(token_embedding,
-                                               {'type': 'function', 'subType': 'bool', 'subSubType': 'none'},
-                                               task_type=TaskTypes.FUNC_TO_NL_TRANSLATION.value)
-    print(signal.shape)
-    CategoryAndTaskEncoder.plot_provider_signal(768, signal)
-    CategoryAndTaskEncoder.plot_provider_signal_fft(1024, signal)
+    print(f"token embedding shape: {token_embedding.shape}")
+
+    categorical_embedding = category_and_task_encoder.categorical_encoding(category_map, task_type)
+    frequency_embedding = CategoryAndTaskEncoder.frequency_encoding(categorical_embedding)
+    print(f"frequency embedding shape: {frequency_embedding.shape}")
+    CategoryAndTaskEncoder.plot_provider_signal(768, frequency_embedding)
+
+    combined_signal = category_and_task_encoder.forward(token_embedding, category_map, task_type)
+    print(f"combined signal shape: {combined_signal.shape}")
+    CategoryAndTaskEncoder.plot_provider_signal(768, combined_signal)
+
+    CategoryAndTaskEncoder.plot_provider_signal_fft(1024, combined_signal)
