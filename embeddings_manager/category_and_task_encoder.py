@@ -15,7 +15,11 @@ from cl_data.src.constants import (
 
 class CategoryAndTaskEncoder:
     def __init__(
-        self, desired_length=768, sample_rate=1024, d_type=torch.float, device="cpu"
+            self,
+            desired_length=768,
+            sample_rate=1024,
+            d_type=torch.float,
+            device="cpu",
     ):
         self.desired_length = desired_length
         self.sample_rate = sample_rate
@@ -31,9 +35,9 @@ class CategoryAndTaskEncoder:
         self.device = device
 
     def categorical_encoding(
-        self,
-        category_map: dict,
-        task_type: PretrainTasks | TaskTypes,
+            self,
+            category_map: dict,
+            task_type: str,
     ):
         category_signal = self.__get_category_signal(
             category_map[Constants.CATEGORY_TYPE],
@@ -41,31 +45,27 @@ class CategoryAndTaskEncoder:
         sub_category_signal = self.__get_sub_category_signal(
             category_map[Constants.CATEGORY_SUB_TYPE],
         )
-        sub_sub_category_signal = self.__get_category_signal(
+        sub_sub_category_signal = self.__get_sub_sub_category_signal(
             category_map[Constants.CATEGORY_SUB_SUB_TYPE],
         )
         task_signal = self.__get_task_signal(task_type)
         combined_signal = (
-            category_signal
-            + sub_category_signal
-            + sub_sub_category_signal
-            + task_signal
+                category_signal
+                + sub_category_signal
+                + sub_sub_category_signal
+                + task_signal
         )
 
-        # Normalize the tensor
-        normalized_tensor = (
-            combined_signal - combined_signal.mean()
-        ) / combined_signal.std()
-        return normalized_tensor
+        # Normalize the tensor by dividing by its maximum absolute value
+        combined_signal /= torch.max(torch.abs(combined_signal))
+        return combined_signal
 
-    def forward(self, token_embedding: Tensor):
-        # TODO
-        pass
+    def forward(self, token_embedding: Tensor, category_map: dict, task_type: str):
+        categorical_embedding = self.categorical_encoding(category_map, task_type)
+        token_embedding = token_embedding + categorical_embedding[: token_embedding.size(0)]
+        return token_embedding
 
-    def __get_category_signal(
-        self,
-        category: CategoryType,
-    ) -> Tensor:
+    def __get_category_signal(self, category: str, ) -> Tensor:
         modulation_freq = self.__get_category_modulation_frequency(category)
 
         combined_freq = self.base_frequencies[0] + modulation_freq
@@ -74,16 +74,14 @@ class CategoryAndTaskEncoder:
             raise ValueError("Sampling rate is too low to capture the signal.")
 
         # Generate time values
-        t = (
-            torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
-            / self.sample_rate
-        )
+        t = (torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
+             / self.sample_rate)
 
         # Generate modulated sine signal
         signal = self.amplitudes[0] * torch.sin(2 * np.pi * combined_freq * t)
         return signal
 
-    def __get_sub_category_signal(self, sub_category: CategorySubType) -> Tensor:
+    def __get_sub_category_signal(self, sub_category: str) -> Tensor:
         modulation_freq = self.__get_sub_category_modulation_frequency(sub_category)
 
         combined_freq = self.base_frequencies[1] + modulation_freq
@@ -92,19 +90,14 @@ class CategoryAndTaskEncoder:
             raise ValueError("Sampling rate is too low to capture the signal.")
 
         # Generate time values
-        t = (
-            torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
-            / self.sample_rate
-        )
+        t = (torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
+             / self.sample_rate)
 
         # Generate modulated sine signal
         signal = self.amplitudes[1] * torch.cos(2 * np.pi * combined_freq * t)
         return signal
 
-    def __get_sub_sub_category_signal(
-        self,
-        sub_sub_category: CategorySubSubType,
-    ) -> Tensor:
+    def __get_sub_sub_category_signal(self, sub_sub_category: str) -> Tensor:
         modulation_freq = self.__get_sub_sub_category_modulation_frequency(
             sub_sub_category
         )
@@ -115,16 +108,14 @@ class CategoryAndTaskEncoder:
             raise ValueError("Sampling rate is too low to capture the signal.")
 
         # Generate time values
-        t = (
-            torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
-            / self.sample_rate
-        )
+        t = (torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
+             / self.sample_rate)
 
         # Generate modulated sine signal
         signal = self.amplitudes[2] * torch.sin(2 * np.pi * combined_freq * t)
         return signal
 
-    def __get_task_signal(self, task_type: TaskTypes | PretrainTasks) -> Tensor:
+    def __get_task_signal(self, task_type: str) -> Tensor:
         modulation_freq = self.__get_task_modulation_frequency(task_type)
 
         combined_freq = self.base_frequencies[3] + modulation_freq
@@ -133,104 +124,82 @@ class CategoryAndTaskEncoder:
             raise ValueError("Sampling rate is too low to capture the signal.")
 
         # Generate time values
-        t = (
-            torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
-            / self.sample_rate
-        )
+        t = (torch.arange(0, self.desired_length, dtype=self.d_type, device=self.device)
+             / self.sample_rate)
 
         # Generate modulated sine signal
         signal = self.amplitudes[3] * torch.cos(2 * np.pi * combined_freq * t)
         return signal
 
-    def __get_category_modulation_frequency(self, category: CategoryType):
-        if category == CategoryType.FUNCTION:
+    def __get_category_modulation_frequency(self, category: str):
+        if category == CategoryType.FUNCTION.value:
             return self.modulations[0]
-        elif category == CategoryType.WORD:
+        elif category == CategoryType.WORD.value:
             return self.modulations[1]
-        elif category == CategoryType.INTEGER:
+        elif category == CategoryType.INTEGER.value:
             return self.modulations[2]
-        elif category == CategoryType.FLOAT:
+        elif category == CategoryType.FLOAT.value:
             return self.modulations[3]
-        elif category == CategoryType.LIST:
+        elif category == CategoryType.LIST.value:
             return self.modulations[4]
-        elif category == CategoryType.BOOL:
+        elif category == CategoryType.BOOL.value:
             return self.modulations[5]
-        elif category == CategoryType.SPECIAL:
+        elif category == CategoryType.SPECIAL.value:
             return self.modulations[6]
 
-    def __get_sub_category_modulation_frequency(self, sub_category: CategorySubType):
-        if sub_category == CategorySubType.DEFAULT:
+    def __get_sub_category_modulation_frequency(self, sub_category: str):
+        if sub_category == CategorySubType.DEFAULT.value:
             return self.modulations[0]
-        elif sub_category == CategorySubType.PLACEHOLDER:
+        elif sub_category == CategorySubType.PLACEHOLDER.value:
             return self.modulations[1]
-        elif sub_category == CategorySubType.RETURN_VALUE:
+        elif sub_category == CategorySubType.RETURN_VALUE.value:
             return self.modulations[2]
-        elif sub_category == CategorySubType.WORD:
+        elif sub_category == CategorySubType.WORD.value:
             return self.modulations[3]
-        elif sub_category == CategorySubType.INTEGER:
+        elif sub_category == CategorySubType.INTEGER.value:
             return self.modulations[4]
-        elif sub_category == CategorySubType.FLOAT:
+        elif sub_category == CategorySubType.FLOAT.value:
             return self.modulations[5]
-        elif sub_category == CategorySubType.LIST:
+        elif sub_category == CategorySubType.LIST.value:
             return self.modulations[6]
-        elif sub_category == CategorySubType.BOOL:
+        elif sub_category == CategorySubType.BOOL.value:
             return self.modulations[7]
 
-    def __get_sub_sub_category_modulation_frequency(
-        self, sub_sub_category: CategorySubSubType
-    ):
-        if sub_sub_category == CategorySubSubType.PARAM_ONE:
+    def __get_sub_sub_category_modulation_frequency(self, sub_sub_category: str):
+        if sub_sub_category == CategorySubSubType.PARAM_ONE.value:
             return self.modulations[0]
-        elif sub_sub_category == CategorySubSubType.PARAM_TWO:
+        elif sub_sub_category == CategorySubSubType.PARAM_TWO.value:
             return self.modulations[1]
-        elif sub_sub_category == CategorySubSubType.PARAM_THREE:
+        elif sub_sub_category == CategorySubSubType.PARAM_THREE.value:
             return self.modulations[2]
-        elif sub_sub_category == CategorySubSubType.PARAM_FOUR:
+        elif sub_sub_category == CategorySubSubType.PARAM_FOUR.value:
             return self.modulations[3]
-        elif sub_sub_category == CategorySubSubType.PARAM_FIVE:
+        elif sub_sub_category == CategorySubSubType.PARAM_FIVE.value:
             return self.modulations[4]
-        elif sub_sub_category == CategorySubSubType.PARAM_LAST:
+        elif sub_sub_category == CategorySubSubType.PARAM_LAST.value:
             return self.modulations[5]
-        elif sub_sub_category == CategorySubSubType.NONE:
+        elif sub_sub_category == CategorySubSubType.NONE.value:
             return self.modulations[6]
-        elif sub_sub_category == CategorySubSubType.PLACEHOLDER:
+        elif sub_sub_category == CategorySubSubType.PLACEHOLDER.value:
             return self.modulations[7]
-        elif sub_sub_category == CategorySubSubType.EXECUTE:
+        elif sub_sub_category == CategorySubSubType.EXECUTE.value:
             return self.modulations[8]
-        elif sub_sub_category == CategorySubSubType.REPRESENT:
+        elif sub_sub_category == CategorySubSubType.REPRESENT.value:
             return self.modulations[9]
 
-    def __get_task_modulation_frequency(self, task: TaskTypes | PretrainTasks):
-        if task == TaskTypes.FUNC_TO_FUNC_TRANSLATION:
+    def __get_task_modulation_frequency(self, task: str):
+        if task == TaskTypes.FUNC_TO_FUNC_TRANSLATION.value:
             return self.modulations[0]
-        elif task == TaskTypes.FUNC_TO_NL_TRANSLATION:
+        elif task == TaskTypes.FUNC_TO_NL_TRANSLATION.value:
             return self.modulations[1]
-        elif task == TaskTypes.NL_TO_FUNC_TRANSLATION:
+        elif task == TaskTypes.NL_TO_FUNC_TRANSLATION.value:
             return self.modulations[2]
-        elif task == TaskTypes.NL_TO_NL_TRANSLATION:
+        elif task == TaskTypes.NL_TO_NL_TRANSLATION.value:
             return self.modulations[3]
-        elif task == PretrainTasks.MASKED_TOKEN_PREDICTION:
+        elif task == PretrainTasks.MASKED_TOKEN_PREDICTION.value:
             return self.modulations[4]
-        elif task == PretrainTasks.NEXT_TOKEN_PREDICTION:
+        elif task == PretrainTasks.NEXT_TOKEN_PREDICTION.value:
             return self.modulations[5]
-
-    def modulate_signals(self, category_map, task_type):
-        pass
-        # Apply modulations based on category_map and task_type
-        # for category, modulation in zip([CategoryType, CategorySubType, CategorySubSubType, TaskType],
-        #                                 self.modulations):
-        #     enum_value = category_map.get(category.name, 0)
-        #     modulation_signal = np.sin(2 * np.pi * modulation * np.linspace(0, 1, self.desired_length))
-        #     self.signals[enum_value] += modulation_signal
-
-    def plot_combined_signal(self):
-        plt.figure(figsize=(10, 6))
-        plt.plot(np.linspace(0, 1, self.desired_length), self.combined_signal)
-        plt.title("Combined Modulated Signal")
-        plt.xlabel("Time")
-        plt.ylabel("Amplitude")
-        plt.grid()
-        plt.show()
 
     @staticmethod
     def plot_provider_signal(desired_length: int, provided_signal: list):
@@ -263,12 +232,12 @@ class CategoryAndTaskEncoder:
 
 
 if __name__ == "__main__":
-    # category_and_task_encoder = CategoryAndTaskEncoder(
-    #     {}, TaskTypes.NL_TO_FUNC_TRANSLATION
-    # )
-    # signal = category_and_task_encoder.__get_category_signal(
-    #     CategoryType.FUNCTION,
-    # )
-    # CategoryAndTaskEncoder.plot_provider_signal(768, signal)
-    # CategoryAndTaskEncoder.plot_provider_signal_fft(1024, signal)
-    pass
+    category_and_task_encoder = CategoryAndTaskEncoder()
+    token_embedding = torch.rand(768)
+    print(token_embedding.shape)
+    signal = category_and_task_encoder.forward(token_embedding,
+                                               {'type': 'function', 'subType': 'bool', 'subSubType': 'none'},
+                                               task_type=TaskTypes.FUNC_TO_NL_TRANSLATION.value)
+    print(signal.shape)
+    CategoryAndTaskEncoder.plot_provider_signal(768, signal)
+    CategoryAndTaskEncoder.plot_provider_signal_fft(1024, signal)
