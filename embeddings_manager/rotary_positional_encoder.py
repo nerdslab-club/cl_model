@@ -1,5 +1,4 @@
 import torch
-from labml.logger import inspect
 from torch import nn
 
 
@@ -48,7 +47,6 @@ class RotaryPositionalEncoder(nn.Module):
 
     def _neg_half(self, x: torch.Tensor):
         d_2 = self.d // 2
-
         return torch.cat([-x[:, :, :, d_2:], x[:, :, :, :d_2]], dim=-1)
 
     def forward(self, x: torch.Tensor):
@@ -64,16 +62,25 @@ class RotaryPositionalEncoder(nn.Module):
         return torch.cat((x_rope, x_pass), dim=-1)
 
 
+# how to use
+# class RotaryPEMultiHeadAttention:
+#     def __init__(self, d_k_feature: int):
+#         # Rotary positional embedding layers
+#         self.query_rotary_pe = RotaryPositionalEncoder(d_k_feature)
+#         self.key_rotary_pe = RotaryPositionalEncoder(d_k_feature)
+#
+#     def get_scores(self, query: torch.Tensor, key: torch.Tensor):
+#         # Calculate dot-product with RoPE
+#         return torch.einsum('ibhd,jbhd->ijbh', self.query_rotary_pe(query), self.key_rotary_pe(key))
+
+
 def _test_rotary():
-    """
-    Testing RoPE with a simple example
-    """
     x = torch.tensor([[1, 2, 3, 4], [4, 5, 6, 7], [7, 8, 9, 10]], dtype=torch.float)
     x = x[:, None, None, :]
-    inspect(x)
+    print(x)
 
     rotary_pe = RotaryPositionalEncoder(4)
-    inspect(rotary_pe(x))
+    print(rotary_pe(x))
 
 
 if __name__ == "__main__":
