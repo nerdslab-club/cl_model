@@ -5,7 +5,7 @@ from typing import Optional
 import torch
 from torch import nn
 from torch.nn import functional as F
-from utils import construct_future_mask
+from transformer_utils import construct_future_mask
 
 
 class MultiHeadAttention(nn.Module):

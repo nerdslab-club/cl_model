@@ -10,7 +10,7 @@ from torch import nn
 from lr_scheduler import NoamOpt
 from transformer import Transformer
 from vocabulary import Vocabulary
-from utils import construct_batches
+from transformer_utils import construct_batches
 
 
 def train(

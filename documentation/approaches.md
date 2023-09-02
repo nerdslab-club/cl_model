@@ -10,7 +10,16 @@
     - func-func translation functionality will degrade
     - Recursive/Combination of functions
 
+#### ideas
+- RMSNorm (Zhang and Sennrich, 2019)
+- SwiGLU activation function (Shazeer, 2020)
+- grouped-query attention (GQA). 
+- xformer.
+
 ### Second approach (Hard)
+
+https://www.youtube.com/watch?v=4vGaN1dTVhw&ab_channel=Brainxyz
+
 
 Questions
 

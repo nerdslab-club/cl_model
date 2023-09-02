@@ -10,7 +10,7 @@ from torch.nn.init import xavier_uniform_
 from vocabulary import Vocabulary
 from encoder import TransformerEncoder
 from decoder import TransformerDecoder
-from utils import construct_future_mask
+from transformer_utils import construct_future_mask
 
 
 class Transformer(nn.Module):

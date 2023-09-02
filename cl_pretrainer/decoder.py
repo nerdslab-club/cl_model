@@ -10,7 +10,7 @@ from torch.nn.init import xavier_uniform_
 
 from multi_head_attention import MultiHeadAttention
 from positional_encodings import SinusoidEncoding
-from utils import construct_future_mask
+from transformer_utils import construct_future_mask
 
 
 class TransformerDecoder(nn.Module):

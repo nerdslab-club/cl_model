@@ -65,10 +65,17 @@
     - (Can use shared weight in linear layer as of token encoder -> nn.embeddings)
 
 11. transformer
-   - Initialize nn.embedding, encoder, decoder, max_decode_length and ...
+    - Initialize nn.embedding for getting initial embeddings from tokens.
+    - Initialize TransformerEncoder block. 
+    - Initialize TransformerDecoder block. 
+    - Define max_decode_length, which will be used for generation of token until <=.
 
 12. train
-   - dfuh
+    - Construct batches with two language as map
+    - Initialize a transformer class
+    - Add optimizer with scheduler
+    - Add loss function
+    - Call the train function with batch, epoch, optimizer, scheduler and loss
 
 13. Save model modular
 
