@@ -69,6 +69,7 @@ class EncoderBlock(nn.Module):
             nn.Linear(ff_dim, hidden_dim),
         )
 
+        # dropout is also known as regularization
         self.dropout1 = nn.Dropout(p=dropout_p)
         self.dropout2 = nn.Dropout(p=dropout_p)
         self.layer_norm1 = nn.LayerNorm(hidden_dim)

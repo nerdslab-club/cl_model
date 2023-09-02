@@ -71,6 +71,10 @@ class TestTransformer(unittest.TestCase):
         ]
         en_vocab = Vocabulary(corpus)
         en_vocab_size = len(en_vocab.token2index.items())
+        print(f"Vocab size {en_vocab_size}\n"
+              f"Padding token id {en_vocab.token2index[en_vocab.PAD]}\n"
+              f"BOS token id {en_vocab.token2index[en_vocab.BOS]}\n"
+              f"EOS token id {en_vocab.token2index[en_vocab.EOS]}")
         with torch.no_grad():
             transformer = Transformer(
                 hidden_dim=512,
@@ -90,6 +94,7 @@ class TestTransformer(unittest.TestCase):
             encoder_input = torch.IntTensor(
                 en_vocab.batch_encode(corpus, add_special_tokens=False)
             )
+
             src_padding_mask = encoder_input != transformer.padding_idx
             encoder_output = transformer.encoder.forward(
                 encoder_input, src_padding_mask=src_padding_mask
@@ -97,6 +102,7 @@ class TestTransformer(unittest.TestCase):
             self.assertEqual(torch.any(torch.isnan(encoder_output)), False)
 
             # Prepare decoder input and mask and start decoding
+            # Initializing two array for batch
             decoder_input = torch.IntTensor(
                 [[transformer.bos_idx], [transformer.bos_idx]]
             )
@@ -117,6 +123,8 @@ class TestTransformer(unittest.TestCase):
                 decoder_input = torch.cat((decoder_input, predicted_tokens), dim=-1)
                 future_mask = construct_future_mask(decoder_input.shape[1])
 
+        print(f"Decoder input shape: {decoder_input.shape}")
+        print(f"Decoder output shape: {decoder_output.shape}")
         self.assertEqual(decoder_input.shape, (2, transformer.max_decoding_length + 1))
         # see test_one_layer_transformer_decoder_inference in decoder.py for more information. with num_layers=1 this
         # will be true.

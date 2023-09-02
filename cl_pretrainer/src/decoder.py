@@ -33,13 +33,17 @@ class TransformerDecoder(nn.Module):
         self.dropout = nn.Dropout(p=0.1)
         self.decoder_blocks = nn.ModuleList(
             [
-                TransformerDecoderBlock(hidden_dim, ff_dim, num_heads, dropout_p)
+                DecoderBlock(hidden_dim, ff_dim, num_heads, dropout_p)
                 for _ in range(num_layers)
             ]
         )
         self.output_layer = nn.Linear(hidden_dim, vocab_size, bias=False)
 
         # Note: a linear layer multiplies the input with a transpose of the weight matrix, so no need to do that here.
+        # Tying weights refers to the practice of sharing the same weight matrix
+        # between the embedding layer and the output (softmax) layer.
+        # This means that the embedding layer and the output layer use
+        # the same set of weights to transform the input and produce the output probabilities.
         if tie_output_to_embedding:
             self.output_layer.weight = nn.Parameter(self.embed.weight)
 
@@ -83,7 +87,7 @@ class TransformerDecoder(nn.Module):
         return logits
 
 
-class TransformerDecoderBlock(nn.Module):
+class DecoderBlock(nn.Module):
     def __init__(self, hidden_dim: int, ff_dim: int, num_heads: int, dropout_p: float):
         super().__init__()
 

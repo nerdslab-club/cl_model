@@ -51,9 +51,23 @@ def train(
             )  # type: ignore
 
             # Align labels with predictions: the last decoder prediction is meaningless because we have no target token
-            # for it. The BOS token in the target is also not something we want to compute a loss for.
+            # for it. In teacher forcing we want to force all tokens, but to force/let know decoder to learn a token,
+            # it has to be provided in the decoder input. If provide in decoder input then it will produce one
+            # decoder output, but this output is meaningless, as we don't have any target for that token.
+
+            # Decoder output also don't have BOS, as BOS is added in decoder input for the first token.
+
+            # [batch_size, sequence_length, logits]
             decoder_output = decoder_output[:, :-1, :]
+            # print(f"after decoder_output {decoder_output.shape}")
+
+            # The BOS token in the target is also not something we want to compute a loss for.
+            # As it's not available in Decoder output.
+            # But Padding and EOS is okay, as we will compute decoder output until max_length.
+            # Which include EOS and Padding musk tokens.
+            # [batch_size, sequence_length]
             tgt_batch = tgt_batch[:, 1:]
+            # print(f"after tgt_batch {tgt_batch.shape}")
 
             # Set pad tokens in the target to -100 so they don't incur a loss
             # tgt_batch[tgt_batch == transformer.padding_idx] = -100
@@ -70,7 +84,7 @@ def train(
                 torch.sum(decoder_output.argmax(dim=-1) == tgt_batch)
             ) / torch.numel(tgt_batch)
 
-            if num_iters % 100 == 0:
+            if num_iters % len(batches['src']) == 0:
                 print(
                     f"epoch: {e}, num_iters: {num_iters}, batch_loss: {batch_loss}, batch_accuracy: {batch_accuracy}"
                 )
@@ -96,14 +110,14 @@ class TestTransformerTraining(unittest.TestCase):
         device = (
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         )
-        if device.type == "cpu":
-            print("This unit test was not run because it requires a GPU")
-            return
+        # if device.type == "cpu":
+        #     print("This unit test was not run because it requires a GPU")
+        #     return
 
         # Hyperparameters
-        synthetic_corpus_size = 600
-        batch_size = 60
-        n_epochs = 200
+        synthetic_corpus_size = 5
+        batch_size = 2
+        n_epochs = 50
         n_tokens_in_batch = 10
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
@@ -118,6 +132,7 @@ class TestTransformerTraining(unittest.TestCase):
             " ".join(choices(valid_tokens, k=n_tokens_in_batch))
             for _ in range(synthetic_corpus_size)
         ]
+        print(f"corpus {len(corpus)}")
 
         # Construct src-tgt aligned input batches (note: the original paper uses dynamic batching based on tokens)
         corpus = [{"src": sent, "tgt": sent} for sent in corpus]
@@ -129,6 +144,8 @@ class TestTransformerTraining(unittest.TestCase):
             tgt_lang_key="tgt",
             device=device,
         )
+
+        print(f"Number of batches {len(batches['src'])}")
 
         # Initialize transformer
         transformer = Transformer(
@@ -160,6 +177,9 @@ class TestTransformerTraining(unittest.TestCase):
         latest_batch_loss, latest_batch_accuracy = train(
             transformer, scheduler, criterion, batches, masks, n_epochs=n_epochs
         )
+
+        print(f"batch loss {latest_batch_loss.item()}")
+        print(f"batch accuracy {latest_batch_accuracy}")
         self.assertEqual(latest_batch_loss.item() <= 0.01, True)
         self.assertEqual(latest_batch_accuracy >= 0.99, True)
 

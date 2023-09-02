@@ -92,8 +92,14 @@ class TestUtils(unittest.TestCase):
 
     def test_construct_batches(self):
         corpus = [
-            {"en": "This is an english sentence.", "nl": "Dit is een Nederlandse zin."},
-            {"en": "The weather is nice today.", "nl": "Het is lekker weer vandaag."},
+            {
+                "en": "This is an english sentence.",
+                "nl": "Dit is een Nederlandse zin."
+            },
+            {
+                "en": "The weather is nice today.",
+                "nl": "Het is lekker weer vandaag."
+            },
             {
                 "en": "Yesterday I drove to a city called Amsterdam in my brand new car.",
                 "nl": "Ik reed gisteren in mijn gloednieuwe auto naar Amsterdam.",
@@ -111,11 +117,16 @@ class TestUtils(unittest.TestCase):
         batches, masks = construct_batches(
             corpus, vocab, batch_size=2, src_lang_key="en", tgt_lang_key="nl"
         )
+        print(batches)
+        print(masks)
         torch.testing.assert_close(
             batches["src"],
             [
                 torch.IntTensor(
-                    [[0, 3, 4, 5, 6, 7, 8, 1], [0, 9, 10, 4, 11, 12, 8, 1]]
+                    [
+                        [0, 3, 4, 5, 6, 7, 8, 1],
+                        [0, 9, 10, 4, 11, 12, 8, 1]
+                    ]
                 ),
                 torch.IntTensor(
                     [
