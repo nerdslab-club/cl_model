@@ -66,6 +66,7 @@ class MultiHeadAttention(nn.Module):
         k = k.permute(0, 2, 1, 3)
         v = v.permute(0, 2, 1, 3)
 
+        # values shape (batch_size, num_heads, sequence_length, qkv_dim)
         # Compute (contextualized) value vector for each "head"
         values, attn = self.scaled_dot_product(q, k, v, src_padding_mask, future_mask)
 

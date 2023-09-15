@@ -37,7 +37,8 @@
    - target_future_musk is used to musk all future tokens of trt tokens.
 
    - scaled_dot_product figure out the attention_score and scaled values.
-   - forward Reshape value to remove head_num and project on wo to find last value.
+   - forward Reshape value to remove head_num (as qkv_dim*num_head == hidden_dim)
+   - and project on wo to find last value.
 
 7. EncoderBlock
    - dropout + multi_head_attention to layer_normalization

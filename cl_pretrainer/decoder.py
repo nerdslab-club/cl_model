@@ -95,7 +95,7 @@ class DecoderBlock(nn.Module):
         self.self_mha = MultiHeadAttention(hidden_dim, num_heads)
         self.feed_forward = nn.Sequential(
             nn.Linear(hidden_dim, ff_dim),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Linear(ff_dim, hidden_dim),
         )
 

@@ -84,7 +84,7 @@ def train(
                 torch.sum(decoder_output.argmax(dim=-1) == tgt_batch)
             ) / torch.numel(tgt_batch)
 
-            if num_iters % len(batches['src']) == 0:
+            if num_iters % len(batches["src"]) == 0:
                 print(
                     f"epoch: {e}, num_iters: {num_iters}, batch_loss: {batch_loss}, batch_accuracy: {batch_accuracy}"
                 )
@@ -145,7 +145,7 @@ class TestTransformerTraining(unittest.TestCase):
             device=device,
         )
 
-        print(f"Number of batches {len(batches['src'])}")
+        print(f"Number of item in batches {len(batches['src'])}")
 
         # Initialize transformer
         transformer = Transformer(

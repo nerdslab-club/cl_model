@@ -65,11 +65,12 @@ class EncoderBlock(nn.Module):
         self.self_mha = MultiHeadAttention(hidden_dim, num_heads)
         self.feed_forward = nn.Sequential(
             nn.Linear(hidden_dim, ff_dim),
-            nn.ReLU(),
+            nn.LeakyReLU(),
             nn.Linear(ff_dim, hidden_dim),
         )
 
-        # dropout is also known as regularization
+        # Dropout is also known as regularization
+        # Normalizing is adding
         self.dropout1 = nn.Dropout(p=dropout_p)
         self.dropout2 = nn.Dropout(p=dropout_p)
         self.layer_norm1 = nn.LayerNorm(hidden_dim)

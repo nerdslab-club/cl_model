@@ -47,8 +47,10 @@ class ALiBiBiEncoder:
 
     @staticmethod
     @torch.no_grad()
-    def get_alibi_biases(n_heads: int, sequence_length: int, with_mask=False, device="cpu") -> Tensor:
-        """ This bias will be subtracted from the real attention score
+    def get_alibi_biases(
+        n_heads: int, sequence_length: int, with_mask=False, device="cpu"
+    ) -> Tensor:
+        """This bias will be subtracted from the real attention score
         :param n_heads: Number of head in multi head attention.
         :param sequence_length: Max supported sequence length in a sentence.
         :param with_mask: Hide future words with mask or not.
@@ -56,7 +58,9 @@ class ALiBiBiEncoder:
         :return: Bias tensor which will be subtracted from attention score.
         """
         m = ALiBiBiEncoder.get_slopes(n_heads).to(device)
-        distance_matrix = ALiBiBiEncoder.generate_distance_matrix(sequence_length, with_mask)
+        distance_matrix = ALiBiBiEncoder.generate_distance_matrix(
+            sequence_length, with_mask
+        )
 
         # Multiply them pair-wise to get the AliBi bias matrix
         return distance_matrix[:, :, None] * m[None, None, :]
@@ -69,7 +73,9 @@ def _test_alibi():
     distance_matrix = ALiBiBiEncoder.generate_distance_matrix(5)
     print(f"distance matrix {distance_matrix}")
 
-    bias = ALiBiBiEncoder.get_alibi_biases(n_heads=8, sequence_length=10, with_mask=False)
+    bias = ALiBiBiEncoder.get_alibi_biases(
+        n_heads=8, sequence_length=10, with_mask=False
+    )
     print(f"bias shape {bias.shape} \n {bias}")
 
 

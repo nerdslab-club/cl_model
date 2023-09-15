@@ -71,10 +71,12 @@ class TestTransformer(unittest.TestCase):
         ]
         en_vocab = Vocabulary(corpus)
         en_vocab_size = len(en_vocab.token2index.items())
-        print(f"Vocab size {en_vocab_size}\n"
-              f"Padding token id {en_vocab.token2index[en_vocab.PAD]}\n"
-              f"BOS token id {en_vocab.token2index[en_vocab.BOS]}\n"
-              f"EOS token id {en_vocab.token2index[en_vocab.EOS]}")
+        print(
+            f"Vocab size {en_vocab_size}\n"
+            f"Padding token id {en_vocab.token2index[en_vocab.PAD]}\n"
+            f"BOS token id {en_vocab.token2index[en_vocab.BOS]}\n"
+            f"EOS token id {en_vocab.token2index[en_vocab.EOS]}"
+        )
         with torch.no_grad():
             transformer = Transformer(
                 hidden_dim=512,
@@ -99,6 +101,9 @@ class TestTransformer(unittest.TestCase):
             encoder_output = transformer.encoder.forward(
                 encoder_input, src_padding_mask=src_padding_mask
             )
+            print(f"Encoder input shape: {encoder_output.shape}")
+            print(f"Encoder output shape: {encoder_output.shape}")
+
             self.assertEqual(torch.any(torch.isnan(encoder_output)), False)
 
             # Prepare decoder input and mask and start decoding
@@ -118,6 +123,7 @@ class TestTransformer(unittest.TestCase):
                 predicted_tokens = torch.argmax(
                     decoder_output[:, -1, :], dim=-1
                 ).unsqueeze(1)
+                print(f"Predicted token: {predicted_tokens}")
 
                 # Append the prediction to the already decoded tokens and construct the new mask
                 decoder_input = torch.cat((decoder_input, predicted_tokens), dim=-1)

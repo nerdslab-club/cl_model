@@ -14,6 +14,7 @@ class InitialFunctionEncoder:
     FDE -> Function Documentation Embeddings 768 TODO
     FSE -> Function Similarity Embeddings 768 (Siamese Network) TODO
     """
+
     def __init__(self):
         self.tokenizer = AutoTokenizer.from_pretrained("microsoft/graphcodebert-base")
         self.config = RobertaConfig.from_pretrained(
@@ -138,7 +139,9 @@ class InitialFunctionEncoder:
         return shape, length
 
     @staticmethod
-    def get_final_initial_function_embedding(documentation_embedding, siamese_embedding, dim=1):
+    def get_final_initial_function_embedding(
+        documentation_embedding, siamese_embedding, dim=1
+    ):
         """Concat documentation_embedding-> [1*768] and siamese_embedding-> [1*768] to get final function embedding-> [2*768]
 
         :param dim: dim=1 will return tensor of [1, 1536] while dim=0 will return tensor of [2,768]
