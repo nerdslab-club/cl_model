@@ -33,11 +33,25 @@ class EmbeddingsManager:
         self.aLiBiBi_encoder = ALiBiBiEncoder()
         self.category_and_task_encoder = CategoryAndTaskEncoder()
 
-    def get_embeddings_map(self, inputMap: dict, taskType: str):
+    def get_embeddings_map(self, token, category_type, category_map, task_type, position):
         # {'token': <function MathFunctions.addition at 0x11645a8c0>,
         # 'category': {'type': 'function', 'subType': 'integer', 'subSubType': 'execute'},
         # 'position': 0},
-        return EmbeddingsManager.create_embeddings_map()
+        token_embedding = self.get_token_embedding(token, category_type)
+        category_and_task_embedding = self.get_category_and_task_embedding(category_map, task_type)
+        combined_embedding = self.get_combined_embedding(token_embedding, category_and_task_embedding)
+        alibibi_embedding = self.get_alibibi_embedding(position)
+        frequency_embedding = self.get_frequency_embedding(category_and_task_embedding)
+        function_token_embedding = self.get_function_token_embedding(token, category_type)
+
+        return EmbeddingsManager.create_embeddings_map(
+            token_embedding,
+            category_and_task_embedding,
+            combined_embedding,
+            alibibi_embedding,
+            frequency_embedding,
+            function_token_embedding
+        )
 
     def get_token_embedding(self, token, category_type):
         if category_type == CategoryType.FUNCTION.value:
@@ -45,20 +59,21 @@ class EmbeddingsManager:
         return self.initial_word_encoder.get_sentence_embedding(str(token), True)
 
     def get_category_and_task_embedding(self, category_map: dict, task_type: str):
-        pass
+        return self.category_and_task_encoder.categorical_encoding(category_map, task_type)
 
     def get_combined_embedding(self, token_embedding, category_and_task_embedding):
-        pass
+        return token_embedding + category_and_task_embedding
 
     def get_alibibi_embedding(self, position: int):
-        pass
+        return self.aLiBiBi_encoder.generate_distance_matrix(position)
 
     def get_frequency_embedding(self, category_and_task_embedding):
-        pass
+        return self.category_and_task_encoder.frequency_encoding(category_and_task_embedding)
 
     def get_function_token_embedding(self, token, category_type):
         if category_type == CategoryType.FUNCTION.value:
-            pass
+            function_name = FunctionManager.get_function_as_string(token)
+            return self.initial_function_encoder.get_perfect_function_embedding_from_name(function_name)
         else:
             return None
 
