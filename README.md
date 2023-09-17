@@ -14,6 +14,6 @@ Goals/Scope for Curious Learner Pre-trainer.
 <img src="./assets/curious_learner_pretrainer_new.png" alt="alt text">
 
 #### Router detailed part
-<img src="./assets/detailed-architecture.png" alt="alt text">
+<img src="assets/detailed_architecture_simple.png" alt="alt text">
 
 
