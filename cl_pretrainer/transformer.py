@@ -56,6 +56,12 @@ class Transformer(nn.Module):
             if p.dim() > 1:
                 xavier_uniform_(p)
 
+    def save_model(self, path: str):
+        torch.save(self.state_dict(), path)
+
+    def load_saved_model(self, path: str):
+        self.load_state_dict(torch.load(path))
+        self.eval()
 
 class TestTransformer(unittest.TestCase):
     def test_transformer_inference(self):

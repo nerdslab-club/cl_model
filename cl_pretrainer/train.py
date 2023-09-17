@@ -20,6 +20,7 @@ def train(
     batches: Dict[str, List[torch.Tensor]],
     masks: Dict[str, List[torch.Tensor]],
     n_epochs: int,
+    is_training: True
 ):
     """
     Main training loop
@@ -30,9 +31,13 @@ def train(
     :param batches: aligned src and tgt batches that contain tokens ids
     :param masks: source key padding mask and target future mask for each batch
     :param n_epochs: the number of epochs to train the model for
+    :param is_training: is the model used for training or inference
     :return: the accuracy and loss on the latest batch
     """
-    transformer.train(True)
+    transformer.train(is_training)
+    if not is_training:
+        n_epochs = 1
+
     num_iters = 0
 
     for e in range(n_epochs):
@@ -90,9 +95,10 @@ def train(
                 )
 
             # Update parameters
-            batch_loss.backward()
-            scheduler.step()
-            scheduler.optimizer.zero_grad()
+            if is_training:
+                batch_loss.backward()
+                scheduler.step()
+                scheduler.optimizer.zero_grad()
             num_iters += 1
     return batch_loss, batch_accuracy
 
@@ -102,8 +108,9 @@ class TestTransformerTraining(unittest.TestCase):
     torch.manual_seed(seed)
     random.seed(seed)
     np.random.seed(seed)
+    PATH = "./saved_models/model.pth"
 
-    def test_copy_task(self):
+    def test_train_and_save(self):
         """
         Test training by trying to (over)fit a simple copy dataset - bringing the loss to ~zero. (GPU required)
         """
@@ -115,24 +122,31 @@ class TestTransformerTraining(unittest.TestCase):
         #     return
 
         # Hyperparameters
-        synthetic_corpus_size = 5
-        batch_size = 2
-        n_epochs = 50
-        n_tokens_in_batch = 10
+        # synthetic_corpus_size = 6
+        # n_tokens_in_batch = 10
+        # corpus += [
+        #     " ".join(choices(valid_tokens, k=n_tokens_in_batch))
+        #     for _ in range(synthetic_corpus_size)
+        # ]
+
+        batch_size = 3
+        n_epochs = 100
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
         # Note: the original paper uses byte pair encodings, we simply take each word to be a token.
-        corpus = ["These are the tokens that will end up in our vocabulary"]
+        corpus = [
+            "These are the tokens that will end up in our vocabulary",
+            "The sun set behind the mountains, painting the sky in hues of orange and pink",
+            "curious cat chased a fluttering butterfly through the lush garden",
+            "She sipped her steaming cup of tea as she gazed out the window at the pouring rain",
+            "The laughter of children echoed through the park on a warm summer afternoon.",
+            "With a flick of his wrist, the magician made the playing cards disappear into thin air."
+        ]
         vocab = Vocabulary(corpus)
         vocab_size = len(
             list(vocab.token2index.keys())
-        )  # 14 tokens including bos, eos and pad
+        )  # 71 tokens including bos, eos and pad
         valid_tokens = list(vocab.token2index.keys())[3:]
-        corpus += [
-            " ".join(choices(valid_tokens, k=n_tokens_in_batch))
-            for _ in range(synthetic_corpus_size)
-        ]
-        print(f"corpus {len(corpus)}")
 
         # Construct src-tgt aligned input batches (note: the original paper uses dynamic batching based on tokens)
         corpus = [{"src": sent, "tgt": sent} for sent in corpus]
@@ -145,7 +159,10 @@ class TestTransformerTraining(unittest.TestCase):
             device=device,
         )
 
-        print(f"Number of item in batches {len(batches['src'])}")
+        print(f"valid token {len(valid_tokens)}\n"
+              f"corpus {len(corpus)}\n"
+              f"batch size: {batch_size} Number of item in batches {len(batches['src'])},"
+              f" calculated : {len(corpus)/batch_size}")
 
         # Initialize transformer
         transformer = Transformer(
@@ -175,7 +192,85 @@ class TestTransformerTraining(unittest.TestCase):
 
         # Start training and verify ~zero loss and >90% accuracy on the last batch
         latest_batch_loss, latest_batch_accuracy = train(
-            transformer, scheduler, criterion, batches, masks, n_epochs=n_epochs
+            transformer, scheduler, criterion, batches, masks, n_epochs=n_epochs, is_training=True
+        )
+
+        print(f"batch loss {latest_batch_loss.item()}")
+        print(f"batch accuracy {latest_batch_accuracy}")
+
+        transformer.save_model(TestTransformerTraining.PATH)
+
+        self.assertEqual(latest_batch_loss.item() <= 0.01, True)
+        self.assertEqual(latest_batch_accuracy >= 0.99, True)
+
+    def test_model_load(self):
+        device = (
+            torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+        )
+        batch_size = 3
+        n_epochs = 100
+        corpus = [
+            "These are the tokens that will end up in our vocabulary",
+            "The sun set behind the mountains, painting the sky in hues of orange and pink",
+            "curious cat chased a fluttering butterfly through the lush garden",
+            "She sipped her steaming cup of tea as she gazed out the window at the pouring rain",
+            "The laughter of children echoed through the park on a warm summer afternoon.",
+            "With a flick of his wrist, the magician made the playing cards disappear into thin air."
+        ]
+        vocab = Vocabulary(corpus)
+        vocab_size = len(
+            list(vocab.token2index.keys())
+        )  # 71 tokens including bos, eos and pad
+        valid_tokens = list(vocab.token2index.keys())[3:]
+
+        # Construct src-tgt aligned input batches (note: the original paper uses dynamic batching based on tokens)
+        corpus = [{"src": sent, "tgt": sent} for sent in corpus]
+        batches, masks = construct_batches(
+            corpus,
+            vocab,
+            batch_size=batch_size,
+            src_lang_key="src",
+            tgt_lang_key="tgt",
+            device=device,
+        )
+
+        print(f"valid token {len(valid_tokens)}\n"
+              f"corpus {len(corpus)}\n"
+              f"batch size: {batch_size} Number of item in batches {len(batches['src'])},"
+              f" calculated : {len(corpus) / batch_size}")
+
+        # Initialize transformer
+        transformer = Transformer(
+            hidden_dim=512,
+            ff_dim=2048,
+            num_heads=8,
+            num_layers=2,
+            max_decoding_length=25,
+            vocab_size=vocab_size,
+            padding_idx=vocab.token2index[vocab.PAD],
+            bos_idx=vocab.token2index[vocab.BOS],
+            dropout_p=0.1,
+            tie_output_to_embedding=True,
+        ).to(device)
+
+        transformer.load_saved_model(TestTransformerTraining.PATH)
+        print("Model loaded correctly...")
+
+        # Initialize learning rate scheduler, optimizer and loss (note: the original paper uses label smoothing)
+        optimizer = torch.optim.Adam(
+            transformer.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9
+        )
+        scheduler = NoamOpt(
+            transformer.hidden_dim,
+            factor=1,
+            warmup=400,
+            optimizer=optimizer,
+        )
+        criterion = nn.CrossEntropyLoss()
+
+        # Start training and verify ~zero loss and >90% accuracy on the last batch
+        latest_batch_loss, latest_batch_accuracy = train(
+            transformer, scheduler, criterion, batches, masks, n_epochs=n_epochs, is_training=False
         )
 
         print(f"batch loss {latest_batch_loss.item()}")
