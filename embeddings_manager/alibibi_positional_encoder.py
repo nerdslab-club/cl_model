@@ -63,18 +63,18 @@ class ALiBiBiEncoder:
         )
 
         # Multiply them pair-wise to get the AliBi bias matrix
-        return distance_matrix[:, :, None] * m[None, None, :]
+        return distance_matrix[None, :, :] * m[:, None, None]
 
 
 def _test_alibi():
-    slopes = ALiBiBiEncoder.get_slopes(1)
+    slopes = ALiBiBiEncoder.get_slopes(8)
     print(f"slopes list for MHA {slopes}")
 
     distance_matrix = ALiBiBiEncoder.generate_distance_matrix(5)
-    print(f"distance matrix {distance_matrix}")
+    print(f"distance matrix shape {distance_matrix.shape} \n {distance_matrix}")
 
     bias = ALiBiBiEncoder.get_alibi_biases(
-        n_heads=8, sequence_length=10, with_mask=False
+        n_heads=8, sequence_length=5, with_mask=False
     )
     print(f"bias shape {bias.shape} \n {bias}")
 
