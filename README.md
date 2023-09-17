@@ -11,6 +11,9 @@ Goals/Scope for Curious Learner Pre-trainer.
 2. Make the attention blocks/layers transferable.
 
 #### Architecture
-<img src="./assets/curious_learner_pretrainer.png" alt="alt text">
+<img src="./assets/curious_learner_pretrainer_new.png" alt="alt text">
+
+#### Router detailed part
+<img src="./assets/detailed-architecture.png" alt="alt text">
 
 
