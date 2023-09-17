@@ -56,7 +56,7 @@ class InitialFunctionEncoder:
         hidden_states = outputs.hidden_states
         return hidden_states
 
-    def get_perfect_function_embedding_from_name(
+    def get_perfect_function_token_embedding_from_name(
         self, function_name: str, max_length=300
     ):
         """Reshape the last hidden state of the embedding into [max_length, 768] tensor
@@ -92,7 +92,7 @@ class InitialFunctionEncoder:
         hidden_states = outputs.hidden_states
         return hidden_states
 
-    def get_function_token_embedding(self, function_ref: types, max_length=300):
+    def get_perfect_function_token_embedding(self, function_ref: types, max_length=300):
         """Reshape the last hidden state of the embedding into [max_length, 768] tensor
 
         :param function_ref: Reference to the function.

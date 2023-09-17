@@ -215,6 +215,10 @@ class CategoryAndTaskEncoder:
             return self.modulations[5]
 
     @staticmethod
+    def get_combined_embedding(token_embedding: Tensor, categorical_embedding: Tensor) -> Tensor:
+        return token_embedding + categorical_embedding[: token_embedding.size(0)]
+
+    @staticmethod
     def plot_provider_signal(desired_length: int, provided_signal: Tensor):
         plt.figure(figsize=(10, 6))
         plt.plot(np.linspace(0, 1, desired_length), provided_signal)
