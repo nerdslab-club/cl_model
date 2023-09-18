@@ -63,6 +63,7 @@ class Transformer(nn.Module):
         self.load_state_dict(torch.load(path))
         self.eval()
 
+
 class TestTransformer(unittest.TestCase):
     def test_transformer_inference(self):
         seed = 0

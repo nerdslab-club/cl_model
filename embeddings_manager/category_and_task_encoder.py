@@ -215,7 +215,9 @@ class CategoryAndTaskEncoder:
             return self.modulations[5]
 
     @staticmethod
-    def get_combined_embedding(token_embedding: Tensor, categorical_embedding: Tensor) -> Tensor:
+    def get_combined_embedding(
+        token_embedding: Tensor, categorical_embedding: Tensor
+    ) -> Tensor:
         return token_embedding + categorical_embedding[: token_embedding.size(0)]
 
     @staticmethod
