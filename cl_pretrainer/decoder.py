@@ -86,6 +86,13 @@ class TransformerDecoder(nn.Module):
         logits = self.output_layer(x)
         return logits
 
+    def save_model(self, path: str):
+        torch.save(self.state_dict(), path)
+
+    def load_saved_model(self, path: str):
+        self.load_state_dict(torch.load(path))
+        self.eval()
+
 
 class DecoderBlock(nn.Module):
     def __init__(self, hidden_dim: int, ff_dim: int, num_heads: int, dropout_p: float):
@@ -149,6 +156,13 @@ class DecoderBlock(nn.Module):
         output = self.dropout3(self.feed_forward(x))
         x = self.layer_norm3(x + output)
         return x
+
+    def save_model(self, path: str):
+        torch.save(self.state_dict(), path)
+
+    def load_saved_model(self, path: str):
+        self.load_state_dict(torch.load(path))
+        self.eval()
 
 
 class TestTransformerDecoder(unittest.TestCase):

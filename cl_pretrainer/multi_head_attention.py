@@ -221,6 +221,13 @@ class MultiHeadAttention(nn.Module):
             masked_logits = logits.masked_fill(future_mask == 0, float("-inf"))
         return masked_logits
 
+    def save_model(self, path: str):
+        torch.save(self.state_dict(), path)
+
+    def load_saved_model(self, path: str):
+        self.load_state_dict(torch.load(path))
+        self.eval()
+
 
 class TestMultiHeadAttention(unittest.TestCase):
     def test_scaled_dot_product(self):

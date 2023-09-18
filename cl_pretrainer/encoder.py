@@ -58,6 +58,13 @@ class TransformerEncoder(nn.Module):
             x = encoder_block.forward(x, src_padding_mask=src_padding_mask)
         return x
 
+    def save_model(self, path: str):
+        torch.save(self.state_dict(), path)
+
+    def load_saved_model(self, path: str):
+        self.load_state_dict(torch.load(path))
+        self.eval()
+
 
 class EncoderBlock(nn.Module):
     def __init__(self, hidden_dim: int, ff_dim: int, num_heads: int, dropout_p: float):
@@ -96,6 +103,13 @@ class EncoderBlock(nn.Module):
         output = self.dropout2(self.feed_forward(x))
         x = self.layer_norm2(x + output)
         return x
+
+    def save_model(self, path: str):
+        torch.save(self.state_dict(), path)
+
+    def load_saved_model(self, path: str):
+        self.load_state_dict(torch.load(path))
+        self.eval()
 
 
 class TestTransformerEncoder(unittest.TestCase):
