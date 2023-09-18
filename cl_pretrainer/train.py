@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from torch import nn
 
+from cl_pretrainer.checkpoint_manager import CheckPointManager
 from lr_scheduler import NoamOpt
 from transformer import Transformer
 from vocabulary import Vocabulary
@@ -20,7 +21,7 @@ def train(
     batches: Dict[str, List[torch.Tensor]],
     masks: Dict[str, List[torch.Tensor]],
     n_epochs: int,
-    is_training: True
+    is_training: True,
 ):
     """
     Main training loop
@@ -140,7 +141,7 @@ class TestTransformerTraining(unittest.TestCase):
             "curious cat chased a fluttering butterfly through the lush garden",
             "She sipped her steaming cup of tea as she gazed out the window at the pouring rain",
             "The laughter of children echoed through the park on a warm summer afternoon.",
-            "With a flick of his wrist, the magician made the playing cards disappear into thin air."
+            "With a flick of his wrist, the magician made the playing cards disappear into thin air.",
         ]
         vocab = Vocabulary(corpus)
         vocab_size = len(
@@ -159,10 +160,12 @@ class TestTransformerTraining(unittest.TestCase):
             device=device,
         )
 
-        print(f"valid token {len(valid_tokens)}\n"
-              f"corpus {len(corpus)}\n"
-              f"batch size: {batch_size} Number of item in batches {len(batches['src'])},"
-              f" calculated : {len(corpus)/batch_size}")
+        print(
+            f"valid token {len(valid_tokens)}\n"
+            f"corpus {len(corpus)}\n"
+            f"batch size: {batch_size} Number of item in batches {len(batches['src'])},"
+            f" calculated : {len(corpus)/batch_size}"
+        )
 
         # Initialize transformer
         transformer = Transformer(
@@ -192,13 +195,24 @@ class TestTransformerTraining(unittest.TestCase):
 
         # Start training and verify ~zero loss and >90% accuracy on the last batch
         latest_batch_loss, latest_batch_accuracy = train(
-            transformer, scheduler, criterion, batches, masks, n_epochs=n_epochs, is_training=True
+            transformer,
+            scheduler,
+            criterion,
+            batches,
+            masks,
+            n_epochs=n_epochs,
+            is_training=True,
         )
 
         print(f"batch loss {latest_batch_loss.item()}")
         print(f"batch accuracy {latest_batch_accuracy}")
 
-        transformer.save_model(TestTransformerTraining.PATH)
+        CheckPointManager.save_checkpoint_map(
+            TestTransformerTraining.PATH,
+            n_epochs,
+            transformer,
+            optimizer,
+        )
 
         self.assertEqual(latest_batch_loss.item() <= 0.01, True)
         self.assertEqual(latest_batch_accuracy >= 0.99, True)
@@ -215,7 +229,7 @@ class TestTransformerTraining(unittest.TestCase):
             "curious cat chased a fluttering butterfly through the lush garden",
             "She sipped her steaming cup of tea as she gazed out the window at the pouring rain",
             "The laughter of children echoed through the park on a warm summer afternoon.",
-            "With a flick of his wrist, the magician made the playing cards disappear into thin air."
+            "With a flick of his wrist, the magician made the playing cards disappear into thin air.",
         ]
         vocab = Vocabulary(corpus)
         vocab_size = len(
@@ -234,10 +248,12 @@ class TestTransformerTraining(unittest.TestCase):
             device=device,
         )
 
-        print(f"valid token {len(valid_tokens)}\n"
-              f"corpus {len(corpus)}\n"
-              f"batch size: {batch_size} Number of item in batches {len(batches['src'])},"
-              f" calculated : {len(corpus) / batch_size}")
+        print(
+            f"valid token {len(valid_tokens)}\n"
+            f"corpus {len(corpus)}\n"
+            f"batch size: {batch_size} Number of item in batches {len(batches['src'])},"
+            f" calculated : {len(corpus) / batch_size}"
+        )
 
         # Initialize transformer
         transformer = Transformer(
@@ -270,7 +286,13 @@ class TestTransformerTraining(unittest.TestCase):
 
         # Start training and verify ~zero loss and >90% accuracy on the last batch
         latest_batch_loss, latest_batch_accuracy = train(
-            transformer, scheduler, criterion, batches, masks, n_epochs=n_epochs, is_training=False
+            transformer,
+            scheduler,
+            criterion,
+            batches,
+            masks,
+            n_epochs=n_epochs,
+            is_training=False,
         )
 
         print(f"batch loss {latest_batch_loss.item()}")
