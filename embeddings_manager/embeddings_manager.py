@@ -33,6 +33,7 @@ class EmbeddingsManager:
         token: any,
         category_map: dict,
         task_type: str,
+        batch_size: int,
         n_heads: int,
         max_sequence_length: int,
         with_mask: bool,
@@ -60,6 +61,7 @@ class EmbeddingsManager:
             category_and_task_embedding,
         )
         alibibi_embedding = self.get_alibibi_embedding(
+            batch_size,
             n_heads,
             max_sequence_length,
             with_mask,
@@ -104,12 +106,13 @@ class EmbeddingsManager:
 
     def get_alibibi_embedding(
         self,
+        batch_size: int,
         n_heads: int,
         max_sequence_length: int,
         with_mask: bool,
     ) -> Tensor:
         return self.aLiBiBi_encoder.get_alibi_biases(
-            n_heads=n_heads, sequence_length=max_sequence_length, with_mask=with_mask
+            batch_size=batch_size, n_heads=n_heads, sequence_length=max_sequence_length, with_mask=with_mask
         )
 
     def get_frequency_embedding(self, category_and_task_embedding: Tensor) -> Tensor:
