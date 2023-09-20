@@ -5,6 +5,8 @@ from typing import Optional
 import torch
 from torch import nn
 from torch.nn import functional as F
+
+from embeddings_manager.alibibi_positional_encoder import ALiBiBiEncoder
 from transformer_utils import construct_future_mask
 
 
@@ -177,6 +179,20 @@ class MultiHeadAttention(nn.Module):
 
         # Scale logits by constant to create less spiky softmax distribution
         attn_logits = attn_logits / math.sqrt(q.size()[-1])
+        # print(f"Shape of attention logits {attn_logits.shape}\n"
+        #       f"batch size {attn_logits.size(0)}\n"
+        #       f"number of head {attn_logits.size(1)}")
+
+        # Get ALiBiBi bias
+        batch_size = attn_logits.size(0)
+        n_heads = attn_logits.size(1)
+        max_sequence_length = attn_logits.size(2)
+        with_mask = future_mask is not None
+        alibibi_bias = ALiBiBiEncoder().get_alibi_biases(
+            batch_size=batch_size, n_heads=n_heads, sequence_length=max_sequence_length, with_mask=with_mask
+        )
+
+        attn_logits = attn_logits - alibibi_bias
 
         # Apply attention mask (for pad tokens and future-masking in cross-attention)
         if src_padding_mask is not None or future_mask is not None:
@@ -236,13 +252,13 @@ class MultiHeadAttention(nn.Module):
 class TestMultiHeadAttention(unittest.TestCase):
     def test_scaled_dot_product(self):
         mha = MultiHeadAttention(512, 8)
-        q = torch.randn(4, 8, 10, 512)
-        k = torch.randn(4, 8, 10, 512)
-        v = torch.randn(4, 8, 10, 512)
+        q = torch.randn(4, 8, 10, 512//8)
+        k = torch.randn(4, 8, 10, 512//8)
+        v = torch.randn(4, 8, 10, 512//8)
 
         values, attention_scores = mha.scaled_dot_product(q, k, v)
 
-        self.assertEqual(values.shape, (4, 8, 10, 512))
+        self.assertEqual(values.shape, (4, 8, 10, 512//8))
         self.assertEqual(attention_scores.shape, (4, 8, 10, 10))
 
         # Each attention distribution should sum up to one
