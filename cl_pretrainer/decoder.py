@@ -76,7 +76,7 @@ class TransformerDecoder(nn.Module):
         """
         # (batch_size, sequence_length, hidden_dim)
         x = self.embed(input_tokens) * math.sqrt(self.hidden_dim)
-        x = self.positional_encoding(x)
+        # x = self.positional_encoding(x)
         x = self.dropout(x)
 
         for decoder_block in self.decoder_blocks:

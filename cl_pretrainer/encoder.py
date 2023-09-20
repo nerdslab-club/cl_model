@@ -52,7 +52,7 @@ class TransformerEncoder(nn.Module):
         :return: The encoder's final (contextualized) token embeddings. Shape: (N, S, E)
         """
         x = self.embed(input_ids) * math.sqrt(self.hidden_dim)  # (N, S, E)
-        x = self.positional_encoding(x)
+        # x = self.positional_encoding(x)
         x = self.dropout(x)
         for encoder_block in self.encoder_blocks:
             x = encoder_block.forward(x, src_padding_mask=src_padding_mask)
