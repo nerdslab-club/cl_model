@@ -51,6 +51,8 @@ class ALiBiBiEncoder:
         batch_size: int, n_heads: int, sequence_length: int, with_mask=False, device="cpu"
     ) -> Tensor:
         """This bias will be subtracted from the real attention score
+        No need to use positional information in cross-attention
+        Link: https://github.com/ofirpress/attention_with_linear_biases/issues/5
         :param batch_size: Batch size that is used for training.
         :param n_heads: Number of head in multi head attention.
         :param sequence_length: Max supported sequence length in a sentence.
