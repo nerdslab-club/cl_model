@@ -22,7 +22,7 @@ class CheckPointManager:
         path: str, epoch: int, transformer: Transformer, optimizer: Adam
     ):
         torch.save(
-            CheckPointManager.create_checkpoint_map(
+            CheckPointManager.__create_checkpoint_map(
                 epoch,
                 transformer.state_dict(),
                 optimizer.state_dict(),
@@ -43,7 +43,7 @@ class CheckPointManager:
         return checkpoint_map.get(item_key)
 
     @staticmethod
-    def create_checkpoint_map(
+    def __create_checkpoint_map(
         epoch: int,
         transformer_state: dict,
         optim_state: dict,
