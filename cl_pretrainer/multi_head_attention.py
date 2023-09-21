@@ -57,8 +57,9 @@ class MultiHeadAttention(nn.Module):
         """
 
         batch_size, sequence_length, hidden_dim = x.size()
+        is_cross_attention: bool = encoder_hidden_states is not None
 
-        if encoder_hidden_states is None:
+        if not is_cross_attention:
             q, k, v = self._self_attention_projection(x)
         else:
             q, k, v = self._cross_attention_projection(encoder_hidden_states, x)
@@ -70,7 +71,7 @@ class MultiHeadAttention(nn.Module):
 
         # values shape (batch_size, num_heads, sequence_length, qkv_dim)
         # Compute (contextualized) value vector for each "head"
-        values, attn = self.scaled_dot_product(q, k, v, src_padding_mask, future_mask)
+        values, attn = self.scaled_dot_product(q, k, v, src_padding_mask, future_mask, is_cross_attention)
 
         # Concatenate contextualized value vectors from all heads
         values = values.reshape(batch_size, sequence_length, hidden_dim)
@@ -147,6 +148,7 @@ class MultiHeadAttention(nn.Module):
         v: torch.Tensor,
         src_padding_mask: Optional[torch.BoolTensor] = None,
         future_mask: Optional[torch.BoolTensor] = None,
+        is_cross_attention=False,
     ):
         """
         For cross-attention, the sequence length of q and (k,v) may differ as q is projected from decoder hidden states
@@ -158,6 +160,7 @@ class MultiHeadAttention(nn.Module):
         E = embedding dimensionality
         H = number of heads
 
+        :param is_cross_attention: Flag from checking cross-attention.
         :param q: Tensor stacking query vectors for all tokens and all heads. Shape: (N, H, S or T, E/H)
         :param k: Tensor stacking key vectors for all tokens and all heads. Shape: (N, H, S or T, E/H)
         :param v: Tensor stacking value vectors for all tokens and all heads. Shape: (N, H, S or T, E/H)
@@ -181,18 +184,20 @@ class MultiHeadAttention(nn.Module):
         attn_logits = attn_logits / math.sqrt(q.size()[-1])
         # print(f"Shape of attention logits {attn_logits.shape}\n"
         #       f"batch size {attn_logits.size(0)}\n"
-        #       f"number of head {attn_logits.size(1)}")
+        #       f"number of head {attn_logits.size(1)}"
+        #       f"max_sequence_length {attn_logits.size(2)}\n")
 
         # Get ALiBiBi bias
-        batch_size = attn_logits.size(0)
-        n_heads = attn_logits.size(1)
-        max_sequence_length = attn_logits.size(2)
-        with_mask = future_mask is not None
-        alibibi_bias = ALiBiBiEncoder().get_alibi_biases(
-            batch_size=batch_size, n_heads=n_heads, sequence_length=max_sequence_length, with_mask=with_mask
-        )
+        if not is_cross_attention:
+            batch_size = attn_logits.size(0)
+            n_heads = attn_logits.size(1)
+            max_sequence_length = attn_logits.size(2)
+            with_mask = future_mask is not None
+            alibibi_bias = ALiBiBiEncoder().get_alibi_biases(
+                batch_size=batch_size, n_heads=n_heads, sequence_length=max_sequence_length, with_mask=with_mask
+            )
 
-        attn_logits = attn_logits - alibibi_bias
+            attn_logits = attn_logits - alibibi_bias
 
         # Apply attention mask (for pad tokens and future-masking in cross-attention)
         if src_padding_mask is not None or future_mask is not None:

@@ -21,11 +21,13 @@ def train(
     batches: Dict[str, List[torch.Tensor]],
     masks: Dict[str, List[torch.Tensor]],
     n_epochs: int,
-    is_training: True,
+    is_training=True,
+    verbose_log=False,
 ):
     """
     Main training loop
 
+    :param verbose_log: Log in detailed level with tgt_output and decoder_output
     :param transformer: the transformer model
     :param scheduler: the learning rate scheduler
     :param criterion: the optimization criterion (loss function)
@@ -94,6 +96,11 @@ def train(
                 print(
                     f"epoch: {e}, num_iters: {num_iters}, batch_loss: {batch_loss}, batch_accuracy: {batch_accuracy}"
                 )
+                if verbose_log:
+                    print(
+                        f"tgt batch: {tgt_batch}\n"
+                        f"decoder output: {decoder_output.argmax(dim=-1)}"
+                    )
 
             # Update parameters
             if is_training:
@@ -131,7 +138,7 @@ class TestTransformerTraining(unittest.TestCase):
         # ]
 
         batch_size = 3
-        n_epochs = 100
+        n_epochs = 50
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
         # Note: the original paper uses byte pair encodings, we simply take each word to be a token.
@@ -143,14 +150,25 @@ class TestTransformerTraining(unittest.TestCase):
             "The laughter of children echoed through the park on a warm summer afternoon.",
             "With a flick of his wrist, the magician made the playing cards disappear into thin air.",
         ]
-        vocab = Vocabulary(corpus)
+        corpus_target = [
+            "The sun is shining brightly in the clear blue sky.",
+            "She studied hard for her exams and earned top grades.",
+            "The cat chased the mouse around the house.",
+            "He loves to play the guitar and sing songs.",
+            "They enjoyed a delicious meal at their favorite restaurant.",
+            "The book was so captivating that she couldn't put it down."
+        ]
+        combined_list = corpus + corpus_target
+
+        vocab = Vocabulary(combined_list)
         vocab_size = len(
             list(vocab.token2index.keys())
-        )  # 71 tokens including bos, eos and pad
+        )  # 110 tokens including bos, eos and pad
         valid_tokens = list(vocab.token2index.keys())[3:]
+        print(f"Vocabulary size: {vocab_size}")
 
         # Construct src-tgt aligned input batches (note: the original paper uses dynamic batching based on tokens)
-        corpus = [{"src": sent, "tgt": sent} for sent in corpus]
+        corpus = [{"src": src, "tgt": tgt} for src, tgt in zip(corpus, corpus_target)]
         batches, masks = construct_batches(
             corpus,
             vocab,
@@ -202,6 +220,7 @@ class TestTransformerTraining(unittest.TestCase):
             masks,
             n_epochs=n_epochs,
             is_training=True,
+            verbose_log=False,
         )
 
         print(f"batch loss {latest_batch_loss.item()}")
