@@ -9,9 +9,9 @@
     - Creating random embeddings provided a token.
 
 3. utils
-    - Construct batches from src and trt string
-    - Tokenize the src and trt string in batches
-    - Add musk for encoder/src and decoder/trt (Future musking)
+    - Construct batches from src and tgt string
+    - Tokenize the src and tgt string in batches
+    - Add musk for encoder/src and decoder/tgt (Future musking)
 
 4. positional_encodings
    - Given hidden dimension create position embeddings.
@@ -34,7 +34,7 @@
    Decoder Self Attention, Encoder-Decoder Attention.
    - Two type of musking is used, src_padding_musk and target_future_musk.
    - src_padding_musk is used to musk all padding token of the src tokens.
-   - target_future_musk is used to musk all future tokens of trt tokens.
+   - target_future_musk is used to musk all future tokens of tgt tokens.
 
    - scaled_dot_product figure out the attention_score and scaled values.
    - forward Reshape value to remove head_num (as qkv_dim*num_head == hidden_dim)

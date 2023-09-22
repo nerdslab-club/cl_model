@@ -134,7 +134,7 @@ class TestTransformerTraining(unittest.TestCase):
         # Hyperparameters
         # synthetic_corpus_size = 6
         # n_tokens_in_batch = 10
-        # corpus += [
+        # corpus_source += [
         #     " ".join(choices(valid_tokens, k=n_tokens_in_batch))
         #     for _ in range(synthetic_corpus_size)
         # ]
@@ -144,7 +144,7 @@ class TestTransformerTraining(unittest.TestCase):
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
         # Note: the original paper uses byte pair encodings, we simply take each word to be a token.
-        corpus = [
+        corpus_source = [
             "These are the tokens that will end up in our vocabulary",
             "The sun set behind the mountains, painting the sky in hues of orange and pink",
             "curious cat chased a fluttering butterfly through the lush garden",
@@ -160,7 +160,7 @@ class TestTransformerTraining(unittest.TestCase):
             "They enjoyed a delicious meal at their favorite restaurant.",
             "The book was so captivating that she couldn't put it down."
         ]
-        combined_list = corpus + corpus_target
+        combined_list = corpus_source + corpus_target
 
         vocab = Vocabulary(combined_list)
         vocab_size = len(
@@ -170,7 +170,7 @@ class TestTransformerTraining(unittest.TestCase):
         print(f"Vocabulary size: {vocab_size}")
 
         # Construct src-tgt aligned input batches (note: the original paper uses dynamic batching based on tokens)
-        corpus = [{"src": src, "tgt": tgt} for src, tgt in zip(corpus, corpus_target)]
+        corpus = [{"src": src, "tgt": tgt} for src, tgt in zip(corpus_source, corpus_target)]
         batches, masks = construct_batches(
             corpus,
             vocab,
@@ -244,7 +244,7 @@ class TestTransformerTraining(unittest.TestCase):
         )
         batch_size = 3
         n_epochs = 2
-        corpus = [
+        corpus_source = [
             "These are the tokens that will end up in our vocabulary",
             "The sun set behind the mountains, painting the sky in hues of orange and pink",
             "curious cat chased a fluttering butterfly through the lush garden",
@@ -260,7 +260,7 @@ class TestTransformerTraining(unittest.TestCase):
             "They enjoyed a delicious meal at their favorite restaurant.",
             "The book was so captivating that she couldn't put it down."
         ]
-        combined_list = corpus + corpus_target
+        combined_list = corpus_source + corpus_target
 
         vocab = Vocabulary(combined_list)
         vocab_size = len(
@@ -270,7 +270,7 @@ class TestTransformerTraining(unittest.TestCase):
         print(f"Vocabulary size: {vocab_size}")
 
         # Construct src-tgt aligned input batches (note: the original paper uses dynamic batching based on tokens)
-        corpus = [{"src": src, "tgt": tgt} for src, tgt in zip(corpus, corpus_target)]
+        corpus = [{"src": src, "tgt": tgt} for src, tgt in zip(corpus_source, corpus_target)]
         batches, masks = construct_batches(
             corpus,
             vocab,
