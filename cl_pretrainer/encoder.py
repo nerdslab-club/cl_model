@@ -6,7 +6,6 @@ from torch import nn
 from torch.nn.init import xavier_uniform_
 
 from multi_head_attention import MultiHeadAttention
-from positional_encodings import SinusoidEncoding
 from vocabulary import Vocabulary
 
 
@@ -23,7 +22,6 @@ class TransformerEncoder(nn.Module):
         super().__init__()
         self.embed = embedding
         self.hidden_dim = hidden_dim
-        self.positional_encoding = SinusoidEncoding(hidden_dim, max_len=5000)
         self.dropout = nn.Dropout(p=dropout_p)
         self.encoder_blocks = nn.ModuleList(
             [
