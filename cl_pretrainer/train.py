@@ -158,7 +158,7 @@ class TestTransformerTraining(unittest.TestCase):
             "The cat chased the mouse around the house.",
             "He loves to play the guitar and sing songs.",
             "They enjoyed a delicious meal at their favorite restaurant.",
-            "The book was so captivating that she couldn't put it down."
+            "The book was so captivating that she couldn't put it down.",
         ]
         combined_list = corpus_source + corpus_target
 
@@ -170,7 +170,9 @@ class TestTransformerTraining(unittest.TestCase):
         print(f"Vocabulary size: {vocab_size}")
 
         # Construct src-tgt aligned input batches (note: the original paper uses dynamic batching based on tokens)
-        corpus = [{"src": src, "tgt": tgt} for src, tgt in zip(corpus_source, corpus_target)]
+        corpus = [
+            {"src": src, "tgt": tgt} for src, tgt in zip(corpus_source, corpus_target)
+        ]
         batches, masks = construct_batches(
             corpus,
             vocab,
@@ -258,7 +260,7 @@ class TestTransformerTraining(unittest.TestCase):
             "The cat chased the mouse around the house.",
             "He loves to play the guitar and sing songs.",
             "They enjoyed a delicious meal at their favorite restaurant.",
-            "The book was so captivating that she couldn't put it down."
+            "The book was so captivating that she couldn't put it down.",
         ]
         combined_list = corpus_source + corpus_target
 
@@ -270,7 +272,9 @@ class TestTransformerTraining(unittest.TestCase):
         print(f"Vocabulary size: {vocab_size}")
 
         # Construct src-tgt aligned input batches (note: the original paper uses dynamic batching based on tokens)
-        corpus = [{"src": src, "tgt": tgt} for src, tgt in zip(corpus_source, corpus_target)]
+        corpus = [
+            {"src": src, "tgt": tgt} for src, tgt in zip(corpus_source, corpus_target)
+        ]
         batches, masks = construct_batches(
             corpus,
             vocab,
@@ -307,7 +311,9 @@ class TestTransformerTraining(unittest.TestCase):
         )
 
         # Load the model...
-        checkpoint_map = CheckPointManager.load_checkpoint_map(TestTransformerTraining.PATH)
+        checkpoint_map = CheckPointManager.load_checkpoint_map(
+            TestTransformerTraining.PATH
+        )
         transformer.load_saved_model_from_state_dict(
             CheckPointManager.get_checkpoint_item(
                 checkpoint_map,

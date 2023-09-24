@@ -71,7 +71,9 @@ class MultiHeadAttention(nn.Module):
 
         # values shape (batch_size, num_heads, sequence_length, qkv_dim)
         # Compute (contextualized) value vector for each "head"
-        values, attn = self.scaled_dot_product(q, k, v, src_padding_mask, future_mask, is_cross_attention)
+        values, attn = self.scaled_dot_product(
+            q, k, v, src_padding_mask, future_mask, is_cross_attention
+        )
 
         # Concatenate contextualized value vectors from all heads
         values = values.reshape(batch_size, sequence_length, hidden_dim)
@@ -194,7 +196,10 @@ class MultiHeadAttention(nn.Module):
             max_sequence_length = attn_logits.size(2)
             with_mask = future_mask is not None
             alibibi_bias = ALiBiBiEncoder().get_alibi_biases(
-                batch_size=batch_size, n_heads=n_heads, sequence_length=max_sequence_length, with_mask=with_mask
+                batch_size=batch_size,
+                n_heads=n_heads,
+                sequence_length=max_sequence_length,
+                with_mask=with_mask,
             )
 
             attn_logits = attn_logits - alibibi_bias
@@ -257,13 +262,13 @@ class MultiHeadAttention(nn.Module):
 class TestMultiHeadAttention(unittest.TestCase):
     def test_scaled_dot_product(self):
         mha = MultiHeadAttention(512, 8)
-        q = torch.randn(4, 8, 10, 512//8)
-        k = torch.randn(4, 8, 10, 512//8)
-        v = torch.randn(4, 8, 10, 512//8)
+        q = torch.randn(4, 8, 10, 512 // 8)
+        k = torch.randn(4, 8, 10, 512 // 8)
+        v = torch.randn(4, 8, 10, 512 // 8)
 
         values, attention_scores = mha.scaled_dot_product(q, k, v)
 
-        self.assertEqual(values.shape, (4, 8, 10, 512//8))
+        self.assertEqual(values.shape, (4, 8, 10, 512 // 8))
         self.assertEqual(attention_scores.shape, (4, 8, 10, 10))
 
         # Each attention distribution should sum up to one

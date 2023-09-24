@@ -48,7 +48,11 @@ class ALiBiBiEncoder:
     @staticmethod
     @torch.no_grad()
     def get_alibi_biases(
-        batch_size: int, n_heads: int, sequence_length: int, with_mask=False, device="cpu"
+        batch_size: int,
+        n_heads: int,
+        sequence_length: int,
+        with_mask=False,
+        device="cpu",
     ) -> Tensor:
         """This bias will be subtracted from the real attention score
         No need to use positional information in cross-attention
