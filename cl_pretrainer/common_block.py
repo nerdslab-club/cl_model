@@ -1,14 +1,43 @@
 import torch
 from torch import nn
+from typing import Optional
+
+from cl_pretrainer.multi_head_attention import MultiHeadAttention
 
 
 class CommonBlock(nn.Module):
-    def __init__(self):
+    def __init__(self, hidden_dim: int, num_heads: int, dropout_p: float):
         super().__init__()
-        pass
+        # Multi head attention layer
+        self.self_mha = MultiHeadAttention(hidden_dim, num_heads)
+        # Dropout is also known as regularization
+        self.dropout1 = nn.Dropout(p=dropout_p)
+        # Normalizing layer for propagating the token values
+        self.layer_norm1 = nn.LayerNorm(hidden_dim)
 
-    def forward(self, x: torch.FloatTensor):
-        pass
+    def forward(
+        self,
+        x: torch.FloatTensor,
+        src_padding_mask: Optional[torch.BoolTensor] = None,
+        future_mask: Optional[torch.BoolTensor] = None,
+    ):
+        """Performs one decoder *block* forward pass given the previous block's output and optional attention masks.
+        N = batch size
+        S = source sequence length
+        E = embedding dimensionality
+
+        :param x: Tensor containing the output of the previous encoder block. Shape: (N, S, E)
+        :param src_padding_mask: An attention mask to ignore pad-tokens in the source input. Shape (N, S)
+        :param future_mask: An attention mask to ignore future-tokens in the target input. Shape (S, S)
+        :return: Updated intermediate decoder common block (contextualized) token embeddings. Shape: (N, S, E)
+        """
+        output = self.dropout1(
+            self.self_mha.forward(
+                x, src_padding_mask=src_padding_mask, future_mask=future_mask
+            )
+        )
+        x = self.layer_norm1(x + output)
+        return x
 
     def save_model(self, path: str):
         torch.save(self.state_dict(), path)

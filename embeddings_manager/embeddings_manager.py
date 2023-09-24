@@ -112,7 +112,10 @@ class EmbeddingsManager:
         with_mask: bool,
     ) -> Tensor:
         return self.aLiBiBi_encoder.get_alibi_biases(
-            batch_size=batch_size, n_heads=n_heads, sequence_length=max_sequence_length, with_mask=with_mask
+            batch_size=batch_size,
+            n_heads=n_heads,
+            sequence_length=max_sequence_length,
+            with_mask=with_mask,
         )
 
     def get_frequency_embedding(self, category_and_task_embedding: Tensor) -> Tensor:
