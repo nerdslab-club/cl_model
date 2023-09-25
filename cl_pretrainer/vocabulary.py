@@ -54,8 +54,18 @@ class Vocabulary:
         tokens = self.tokenize(sentence, add_special_tokens)
         return [self.token2index[token] for token in tokens]
 
+    def decode(self, token_list: List[int]) -> str:
+        """
+        Converts a token list to a sentence given the vocabulary
+
+        :param token_list: a token list representing a sentence
+        :return: string
+        """
+        output_arr = [self.index2token[token] for token in token_list]
+        return " ".join(output_arr)
+
     def batch_encode(
-        self, sentences: List[str], padding=True, add_special_tokens: bool = False
+            self, sentences: List[str], padding=True, add_special_tokens: bool = False
     ) -> List[List[int]]:
         """
         Convert a list of string sentences to nested list of token indices. Optionally adds padding & bos+eos tokens
