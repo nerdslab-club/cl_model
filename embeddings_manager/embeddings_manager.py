@@ -21,6 +21,10 @@ class EmbeddingsManager:
     COMBINED_EMBEDDING = "TECTE"
     # Frequency embedding
     FREQUENCY_EMBEDDING = "FE"
+    TOKEN = "T"
+    CATEGORY_MAP = "CM"
+    POSITION = "P"
+    TASK_TYPE = "TT"
 
     def __init__(self):
         self.initial_word_encoder = InitialWordEncoder()
@@ -33,6 +37,7 @@ class EmbeddingsManager:
         token: any,
         category_map: dict,
         task_type: str,
+        position: int,
         batch_size: int,
         n_heads: int,
         max_sequence_length: int,
@@ -71,13 +76,16 @@ class EmbeddingsManager:
             token,
             category_type,
         )
-
         return EmbeddingsManager.create_embeddings_map(
             token_embedding,
             category_and_task_embedding,
             combined_embedding,
             alibibi_embedding,
             frequency_embedding,
+            token,
+            category_map,
+            position,
+            task_type,
             function_token_embedding,
         )
 
@@ -133,12 +141,16 @@ class EmbeddingsManager:
 
     @staticmethod
     def create_embeddings_map(
-        token_embedding,
-        alibibi_embedding,
-        combined_embedding,
-        category_embedding,
-        frequency_embedding,
-        function_token_embeddings=None,
+        token_embedding: Tensor,
+        alibibi_embedding: Tensor,
+        combined_embedding: Tensor,
+        category_embedding: Tensor,
+        frequency_embedding: Tensor,
+        token: any,
+        category_map: dict,
+        position: int,
+        task_type: str,
+        function_token_embeddings=None | Tensor,
     ) -> dict:
         return {
             EmbeddingsManager.TOKEN_EMBEDDING: token_embedding,
@@ -147,4 +159,8 @@ class EmbeddingsManager:
             EmbeddingsManager.CATEGORY_AND_TASK_EMBEDDING: category_embedding,
             EmbeddingsManager.FREQUENCY_EMBEDDING: frequency_embedding,
             EmbeddingsManager.FUNTION_TOKEN_EMBEDDING: function_token_embeddings,
+            EmbeddingsManager.TOKEN: token,
+            EmbeddingsManager.CATEGORY_MAP: category_map,
+            EmbeddingsManager.POSITION: position,
+            EmbeddingsManager.TASK_TYPE: task_type,
         }
