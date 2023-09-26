@@ -8,12 +8,13 @@ from cl_pretrainer.multi_head_attention import MultiHeadAttention
 class CommonBlock(nn.Module):
     def __init__(self, hidden_dim: int, num_heads: int, dropout_p: float):
         super().__init__()
+        # sa => self attention
         # Multi head attention layer
-        self.self_mha = MultiHeadAttention(hidden_dim, num_heads)
+        self.common_block_self_mha = MultiHeadAttention(hidden_dim, num_heads)
         # Dropout is also known as regularization
-        self.dropout1 = nn.Dropout(p=dropout_p)
+        self.common_block_dropout_sa = nn.Dropout(p=dropout_p)
         # Normalizing layer for propagating the token values
-        self.layer_norm1 = nn.LayerNorm(hidden_dim)
+        self.common_block_layer_norm_sa = nn.LayerNorm(hidden_dim)
 
     def forward(
         self,
@@ -31,12 +32,12 @@ class CommonBlock(nn.Module):
         :param future_mask: An attention mask to ignore future-tokens in the target input. Shape (S, S)
         :return: Updated intermediate decoder common block (contextualized) token embeddings. Shape: (N, S, E)
         """
-        output = self.dropout1(
-            self.self_mha.forward(
+        output = self.common_block_dropout_sa(
+            self.common_block_self_mha.forward(
                 x, src_padding_mask=src_padding_mask, future_mask=future_mask
             )
         )
-        x = self.layer_norm1(x + output)
+        x = self.common_block_layer_norm_sa(x + output)
         return x
 
     def save_model(self, path: str):
