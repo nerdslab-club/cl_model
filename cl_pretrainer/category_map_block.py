@@ -21,12 +21,10 @@ class CategoryMapBlock(nn.Module):
         self.category_map_block_dropout1 = nn.Dropout(p=dropout_p)
         self.category_map_block_dropout2 = nn.Dropout(p=dropout_p)
         self.category_map_block_dropout3 = nn.Dropout(p=dropout_p)
-        self.category_map_block_dropout4 = nn.Dropout(p=dropout_p)
         # Normalizing layer for propagating the token values
         self.category_map_block_layer_norm1 = nn.LayerNorm(hidden_dim)
         self.category_map_block_layer_norm2 = nn.LayerNorm(hidden_dim)
         self.category_map_block_layer_norm3 = nn.LayerNorm(hidden_dim)
-        self.category_map_block_layer_norm4 = nn.LayerNorm(hidden_dim)
 
     def forward(self,
                 x: torch.FloatTensor,
@@ -55,8 +53,8 @@ class CategoryMapBlock(nn.Module):
         x = self.category_map_block_layer_norm2(x + output)
 
         # Feed forward layers
-        output = self.category_map_block_dropout4(self.category_map_block_feed_forward(x))
-        x = self.category_map_block_layer_norm4(x + output)
+        output = self.category_map_block_dropout3(self.category_map_block_feed_forward(x))
+        x = self.category_map_block_layer_norm3(x + output)
         return x
         pass
 
