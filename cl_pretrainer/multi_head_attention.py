@@ -320,7 +320,7 @@ class TestMultiHeadAttention(unittest.TestCase):
         self.assertEqual(torch.any(torch.isnan(output)), False)
 
     def test_future_masking(self):
-        batch_size, n_heads, seq_len = 2, 2, 3  # TODO add 2 heads and batch_size=3
+        batch_size, n_heads, seq_len = 2, 2, 3
         logits = torch.randn(batch_size, n_heads, seq_len, seq_len, dtype=torch.float)
         future_mask = construct_future_mask(seq_len)
         self.assertEqual(future_mask.shape, (3, 3))

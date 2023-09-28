@@ -5,6 +5,7 @@ import torch
 from torch import nn
 from torch.nn.init import xavier_uniform_
 
+from embeddings_manager.embeddings_manager import EmbeddingsManager
 from multi_head_attention import MultiHeadAttention
 from vocabulary import Vocabulary
 
@@ -12,7 +13,7 @@ from vocabulary import Vocabulary
 class TransformerEncoder(nn.Module):
     def __init__(
         self,
-        embedding: torch.nn.Embedding,
+        embeddings_manager: EmbeddingsManager,
         hidden_dim: int,
         ff_dim: int,
         num_heads: int,
@@ -20,7 +21,8 @@ class TransformerEncoder(nn.Module):
         dropout_p: float,
     ):
         super().__init__()
-        self.embed = embedding
+        # self.embed = embedding
+        self.embeddings_manager = embeddings_manager
         self.hidden_dim = hidden_dim
         self.dropout = nn.Dropout(p=dropout_p)
         self.encoder_blocks = nn.ModuleList(
@@ -36,7 +38,11 @@ class TransformerEncoder(nn.Module):
                 xavier_uniform_(p)
 
     def forward(
-        self, input_ids: torch.Tensor, src_padding_mask: torch.BoolTensor = None
+        self,
+        batch_io_parser_output: list[list[dict]],
+        task_type: str,
+        # input_ids: torch.Tensor,
+        src_padding_mask: torch.BoolTensor = None,
     ):
         """
         Performs one encoder forward pass given input token ids and an optional attention mask.
@@ -45,10 +51,15 @@ class TransformerEncoder(nn.Module):
         S = source sequence length
         E = embedding dimensionality
 
+
+        :param task_type:
+        :param batch_io_parser_output:
         :param input_ids: Tensor containing input token ids. Shape: (N, S)
         :param src_padding_mask: An attention mask to ignore pad-tokens in the source input. Shape (N, S)
         :return: The encoder's final (contextualized) token embeddings. Shape: (N, S, E)
         """
+        batch_embedding_maps = self.embeddings_manager.get_batch_embeddings_maps(batch_io_parser_output, task_type)
+
         x = self.embed(input_ids) * math.sqrt(self.hidden_dim)  # (N, S, E)
         # x = self.positional_encoding(x)
         x = self.dropout(x)

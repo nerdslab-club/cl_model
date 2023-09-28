@@ -1,9 +1,10 @@
+import torch
 from torch import Tensor
 
-from embeddings_manager.Initial_function_encoder import InitialFunctionEncoder
-from embeddings_manager.alibibi_positional_encoder import ALiBiBiEncoder
-from embeddings_manager.category_and_task_encoder import CategoryAndTaskEncoder
-from embeddings_manager.initial_word_encoder import InitialWordEncoder
+from Initial_function_encoder import InitialFunctionEncoder
+from alibibi_positional_encoder import ALiBiBiEncoder
+from category_and_task_encoder import CategoryAndTaskEncoder
+from initial_word_encoder import InitialWordEncoder
 from cl_data.src.constants import CategoryType, Constants
 from cl_data.function_representation.src.functions_manager import FunctionManager
 
@@ -41,17 +42,82 @@ class EmbeddingsManager:
         self.max_sequence_length = max_sequence_length
         self.with_mask = with_mask
 
-    def get_batch_embeddings_map(self, input_map_list: list[dict], task_type: str) -> list[dict]:
-        embedding_map_list = []
-        for input_map in input_map_list:
-            current_embeddings_map = self.get_embeddings_map(
-                input_map[Constants.TOKEN],
-                input_map[Constants.CATEGORY],
-                input_map[Constants.POSITION],
+    def get_batch_combined_embeddings(self, batch_io_parser_output: list[list[dict]], task_type: str) -> Tensor:
+        """Batch of the io parser output, it converts every io parser item into it's combined embedding
+
+        :param batch_io_parser_output: batch of io_parser_output
+        :param task_type: Type of task. ie: func_to_nl_translation.
+        :return: Return the combined embeddings of list of sentence.
+        Shape [ len(batch_io_parser_output), max_sequence_length 768]
+        """
+        batch_item_tensors = torch.empty((0, self.max_sequence_length, 768), dtype=torch.float32)
+        for io_parser_output in batch_io_parser_output:
+            item_tensors = self.get_sentence_combined_embeddings(io_parser_output, task_type)
+            batch_item_tensors = torch.cat((batch_item_tensors, item_tensors.unsqueeze(0)), dim=0)
+        return batch_item_tensors
+
+    def get_sentence_combined_embeddings(self, io_parser_output: list[dict], task_type: str) -> Tensor:
+        """Given the io parser output it convert every io parser item into it's combined embedding
+
+        :param io_parser_output: input string -> io parser
+        [
+             {
+                "token":126,
+                "category":{
+                   "type":"integer",
+                   "subType":"default",
+                   "subSubType":"none"
+                },
+                "position":0
+             },
+             {
+                "token":"plus",
+                "category":{
+                   "type":"word",
+                   "subType":"default",
+                   "subSubType":"none"
+                },
+                "position":1
+             },
+         ]
+        :param task_type: Type of task. ie: func_to_nl_translation.
+        :return: Return the combined embeddings of sentence. Shape [ len(io_parser_output), 768]
+        """
+        item_tensors = torch.empty((0, 768), dtype=torch.float32)
+        for io_parser_output_item in io_parser_output:
+            token_embedding = self.get_token_embedding(
+                io_parser_output_item[Constants.TOKEN],
+                io_parser_output_item[Constants.CATEGORY],
+            )
+            category_and_task_embedding = self.get_category_and_task_embedding(
+                io_parser_output_item[Constants.CATEGORY],
                 task_type,
             )
-            embedding_map_list.append(current_embeddings_map)
-        return embedding_map_list
+            combined_embedding = self.get_combined_embedding(
+                token_embedding,
+                category_and_task_embedding,
+            )
+            item_tensors = torch.cat((item_tensors, combined_embedding.unsqueeze(0)), dim=0)
+        return item_tensors
+
+    def get_batch_embeddings_maps(self, batch_io_parser_output: list[list[dict]], task_type: str) -> list[list[dict]]:
+        batch_embedding_maps = []
+        for io_parser_output in batch_io_parser_output:
+            batch_embedding_maps.append(self.get_sentence_embeddings_maps(io_parser_output, task_type))
+        return batch_embedding_maps
+
+    def get_sentence_embeddings_maps(self, io_parser_output: list[dict], task_type: str) -> list[dict]:
+        # TODO instead of creating a list can't we modify the given one ?
+        embedding_maps = []
+        for io_parser_output_item in io_parser_output:
+            current_embeddings_map = self.get_embeddings_map(
+                io_parser_output_item[Constants.TOKEN],
+                io_parser_output_item[Constants.CATEGORY],
+                io_parser_output_item[Constants.POSITION],
+                task_type,
+            )
+            embedding_maps.append(current_embeddings_map)
+        return embedding_maps
 
     def get_embeddings_map(
             self,
@@ -181,3 +247,50 @@ class EmbeddingsManager:
             EmbeddingsManager.POSITION: position,
             EmbeddingsManager.TASK_TYPE: task_type,
         }
+
+
+if __name__ == "__main__":
+    item = [
+        {
+            "token": 126,
+            "category": {
+                "type": "integer",
+                "subType": "default",
+                "subSubType": "none"
+            },
+            "position": 0
+        },
+        {
+            "token": "plus",
+            "category": {
+                "type": "word",
+                "subType": "default",
+                "subSubType": "none"
+            },
+            "position": 1
+        },
+        {
+            "token": 840,
+            "category": {
+                "type": "integer",
+                "subType": "default",
+                "subSubType": "none"
+            },
+            "position": 2
+        },
+        {
+            "token": "equals?",
+            "category": {
+                "type": "word",
+                "subType": "default",
+                "subSubType": "none"
+            },
+            "position": 3
+        }
+    ]
+    embeddings_manager = EmbeddingsManager(batch_size=2, n_heads=8, max_sequence_length=len(item), with_mask=True)
+    item_tensors = embeddings_manager.get_sentence_combined_embeddings(item, "func_to_nl_translation")
+    print(f"items tensors shape: {item_tensors.shape}")
+
+    batch_item_tensors = embeddings_manager.get_batch_combined_embeddings([item, item], "func_to_nl_translation")
+    print(f"batch item tensors shape: {batch_item_tensors.shape}")
