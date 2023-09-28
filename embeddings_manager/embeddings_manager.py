@@ -26,23 +26,40 @@ class EmbeddingsManager:
     POSITION = "P"
     TASK_TYPE = "TT"
 
-    def __init__(self):
+    def __init__(
+            self,
+            batch_size: int,
+            n_heads: int,
+            max_sequence_length: int,
+            with_mask: bool):
         self.initial_word_encoder = InitialWordEncoder()
         self.initial_function_encoder = InitialFunctionEncoder()
         self.aLiBiBi_encoder = ALiBiBiEncoder()
         self.category_and_task_encoder = CategoryAndTaskEncoder()
+        self.batch_size = batch_size
+        self.n_heads = n_heads
+        self.max_sequence_length = max_sequence_length
+        self.with_mask = with_mask
+
+    def get_batch_embeddings_map(self, input_map_list: list[dict], task_type: str) -> list[dict]:
+        embedding_map_list = []
+        for input_map in input_map_list:
+            current_embeddings_map = self.get_embeddings_map(
+                input_map[Constants.TOKEN],
+                input_map[Constants.CATEGORY],
+                input_map[Constants.POSITION],
+                task_type,
+            )
+            embedding_map_list.append(current_embeddings_map)
+        return embedding_map_list
 
     def get_embeddings_map(
-        self,
-        token: any,
-        category_map: dict,
-        task_type: str,
-        position: int,
-        batch_size: int,
-        n_heads: int,
-        max_sequence_length: int,
-        with_mask: bool,
-    ):
+            self,
+            token: any,
+            category_map: dict,
+            position: int,
+            task_type: str,
+    ) -> dict:
         # {
         # 'token': <function MathFunctions.addition at 0x11645a8c0>,
         # 'category': {
@@ -66,10 +83,10 @@ class EmbeddingsManager:
             category_and_task_embedding,
         )
         alibibi_embedding = self.get_alibibi_embedding(
-            batch_size,
-            n_heads,
-            max_sequence_length,
-            with_mask,
+            self.batch_size,
+            self.n_heads,
+            self.max_sequence_length,
+            self.with_mask,
         )
         frequency_embedding = self.get_frequency_embedding(category_and_task_embedding)
         function_token_embedding = self.get_function_token_embedding(
@@ -95,29 +112,29 @@ class EmbeddingsManager:
         return self.initial_word_encoder.get_sentence_embedding(str(token), True)
 
     def get_category_and_task_embedding(
-        self,
-        category_map: dict,
-        task_type: str,
+            self,
+            category_map: dict,
+            task_type: str,
     ) -> Tensor:
         return self.category_and_task_encoder.categorical_encoding(
             category_map, task_type
         )
 
     def get_combined_embedding(
-        self,
-        token_embedding: Tensor,
-        categorical_embedding: Tensor,
+            self,
+            token_embedding: Tensor,
+            categorical_embedding: Tensor,
     ) -> Tensor:
         return self.category_and_task_encoder.get_combined_embedding(
             token_embedding, categorical_embedding
         )
 
     def get_alibibi_embedding(
-        self,
-        batch_size: int,
-        n_heads: int,
-        max_sequence_length: int,
-        with_mask: bool,
+            self,
+            batch_size: int,
+            n_heads: int,
+            max_sequence_length: int,
+            with_mask: bool,
     ) -> Tensor:
         return self.aLiBiBi_encoder.get_alibi_biases(
             batch_size=batch_size,
@@ -141,16 +158,16 @@ class EmbeddingsManager:
 
     @staticmethod
     def create_embeddings_map(
-        token_embedding: Tensor,
-        alibibi_embedding: Tensor,
-        combined_embedding: Tensor,
-        category_embedding: Tensor,
-        frequency_embedding: Tensor,
-        token: any,
-        category_map: dict,
-        position: int,
-        task_type: str,
-        function_token_embeddings=None | Tensor,
+            token_embedding: Tensor,
+            alibibi_embedding: Tensor,
+            combined_embedding: Tensor,
+            category_embedding: Tensor,
+            frequency_embedding: Tensor,
+            token: any,
+            category_map: dict,
+            position: int,
+            task_type: str,
+            function_token_embeddings=None | Tensor,
     ) -> dict:
         return {
             EmbeddingsManager.TOKEN_EMBEDDING: token_embedding,
