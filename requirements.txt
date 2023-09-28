@@ -8,3 +8,4 @@ spacy == 3.6.0
 torch==2.0.1
 labml==0.4.167
 matplotlib==3.7.2
+Deprecated == 1.2.14
