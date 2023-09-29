@@ -3,12 +3,18 @@ from typing import Dict, List, Tuple, Optional
 import torch
 
 from cl_data.io_parser.io_parser import IoParser
+from cl_data.src.constants import Constants, SpecialTokens
 from cl_data.src.utility import Utility
 
 
 class BatchBuilder:
     SOURCE_LANGUAGE_KEY = "inputStr"
     TARGET_LANGUAGE_KEY = "outputStr"
+    ENCODER_IO_PARSER_OUTPUT_KEY = "encoderIoParserOutput"
+    DECODER_IO_PARSER_OUTPUT_KEY = "decoderIoParserOutput"
+    FUTURE_MASK_KEY = "futureMaskKey"
+    ENCODER_PADDING_MASK_KEY = "encoderPaddingMaskKey"
+    DECODER_PADDING_MASK_KEY = "decoderPaddingMaskKey"
 
     @staticmethod
     def get_batch_io_parser_output(
@@ -79,9 +85,17 @@ class BatchBuilder:
         :return: A tuple containing two dictionaries.
         The first represents the batches, This is batch io parser output.
         Second one represents the attention masks. This is bool Tensor.
+        We don't need decoder padding mask as when we will get EOS token then we will stop predicting.
         """
-        batches: Dict[str, List] = {"src": [], "tgt": []}
-        masks: Dict[str, List] = {"src": [], "tgt": []}
+        batches: Dict[str, List] = {
+            BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY: [],
+            BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY: [],
+        }
+        masks: Dict[str, List] = {
+            BatchBuilder.FUTURE_MASK_KEY: [],
+            BatchBuilder.ENCODER_PADDING_MASK_KEY: [],
+            BatchBuilder.DECODER_PADDING_MASK_KEY: [],
+        }
         for i in range(0, len(corpus), batch_size):
             input_sentences = [pair.get(BatchBuilder.SOURCE_LANGUAGE_KEY, "") for pair in corpus[i: i + batch_size]]
             src_batch = BatchBuilder.get_batch_io_parser_output(
@@ -97,21 +111,22 @@ class BatchBuilder:
                 max_sequence_length=max_decoder_sequence_length,
             )
 
-            # TODO fix the mask part
-            # suggestion : need to get the mask from get_batch_io_parser_output function as tuple
-            # src_padding_mask = src_batch != pad_token_id
-            # future_mask = construct_future_mask(tgt_batch.shape[-1])
+            future_mask = BatchBuilder.construct_future_mask(max_decoder_sequence_length)
+            encoder_padding_mask = BatchBuilder.construct_padding_mask(src_batch)
+            decoder_padding_mask = BatchBuilder.construct_padding_mask(tgt_batch)
 
-            # Move tensors to gpu; if available
             if device is not None:
                 src_batch = src_batch.to(device)  # type: ignore
                 tgt_batch = tgt_batch.to(device)  # type: ignore
-                src_padding_mask = src_padding_mask.to(device)
                 future_mask = future_mask.to(device)
-            batches["src"].append(src_batch)
-            batches["tgt"].append(tgt_batch)
-            masks["src"].append(src_padding_mask)
-            masks["tgt"].append(future_mask)
+                encoder_padding_mask = encoder_padding_mask.to(device)
+                decoder_padding_mask = decoder_padding_mask.to(device)
+
+            batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY].append(src_batch)
+            batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY].append(tgt_batch)
+            masks[BatchBuilder.ENCODER_PADDING_MASK_KEY].append(encoder_padding_mask)
+            masks[BatchBuilder.DECODER_PADDING_MASK_KEY].append(decoder_padding_mask)
+            masks[BatchBuilder.FUTURE_MASK_KEY].append(future_mask)
         return batches, masks
 
     @staticmethod
@@ -126,3 +141,86 @@ class BatchBuilder:
         """
         subsequent_mask = torch.triu(torch.full((seq_len, seq_len), 1), diagonal=1)
         return subsequent_mask == 0
+
+    @staticmethod
+    def construct_padding_mask(batch_io_parser_output: list[list[dict]]):
+        """ Create padding mask by comparing batch_io_parser_output items to <PAD> token.
+
+        :param batch_io_parser_output: batch of io_parser_output
+        :return: Bool tensor padding mask.
+        """
+        # Convert the list to a PyTorch tensor of integers (comparing with 1)
+        padding_mask = torch.tensor(
+            [[item[Constants.TOKEN] == SpecialTokens.PADDING.value for item in io_parser_output] for io_parser_output in
+             batch_io_parser_output], dtype=torch.bool)
+
+        return padding_mask
+
+
+if __name__ == "__main__":
+    item = [
+        {
+            "token": SpecialTokens.BEGINNING.value,
+            "category": {
+                "type": "special",
+                "subType": "word",
+                "subSubType": "none"
+            },
+            "position": 0
+        },
+        {
+            "token": 126,
+            "category": {
+                "type": "integer",
+                "subType": "default",
+                "subSubType": "none"
+            },
+            "position": 1
+        },
+        {
+            "token": "plus",
+            "category": {
+                "type": "word",
+                "subType": "default",
+                "subSubType": "none"
+            },
+            "position": 2
+        },
+        {
+            "token": 840,
+            "category": {
+                "type": "integer",
+                "subType": "default",
+                "subSubType": "none"
+            },
+            "position": 3
+        },
+        {
+            "token": "equals?",
+            "category": {
+                "type": "word",
+                "subType": "default",
+                "subSubType": "none"
+            },
+            "position": 4
+        },
+        {
+            "token": SpecialTokens.ENDING.value,
+            "category": {
+                "type": "special",
+                "subType": "word",
+                "subSubType": "none"
+            },
+            "position": 5
+        },
+        {
+            "token": SpecialTokens.PADDING.value,
+            "category": {
+                "type": "special",
+                "subType": "word",
+                "subSubType": "none"
+            },
+            "position": 6
+        },
+    ]
+    print(f"Padding mask: {BatchBuilder.construct_padding_mask([item, item])}")
