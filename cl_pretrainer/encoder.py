@@ -12,16 +12,15 @@ from vocabulary import Vocabulary
 
 class TransformerEncoder(nn.Module):
     def __init__(
-        self,
-        embeddings_manager: EmbeddingsManager,
-        hidden_dim: int,
-        ff_dim: int,
-        num_heads: int,
-        num_layers: int,
-        dropout_p: float,
+            self,
+            embeddings_manager: EmbeddingsManager,
+            hidden_dim: int,
+            ff_dim: int,
+            num_heads: int,
+            num_layers: int,
+            dropout_p: float,
     ):
         super().__init__()
-        # self.embed = embedding
         self.embeddings_manager = embeddings_manager
         self.hidden_dim = hidden_dim
         self.dropout = nn.Dropout(p=dropout_p)
@@ -38,11 +37,10 @@ class TransformerEncoder(nn.Module):
                 xavier_uniform_(p)
 
     def forward(
-        self,
-        batch_io_parser_output: list[list[dict]],
-        task_type: str,
-        # input_ids: torch.Tensor,
-        src_padding_mask: torch.BoolTensor = None,
+            self,
+            batch_io_parser_output: list[list[dict]],
+            task_type: str,
+            src_padding_mask: torch.BoolTensor = None,
     ):
         """
         Performs one encoder forward pass given input token ids and an optional attention mask.
@@ -51,17 +49,14 @@ class TransformerEncoder(nn.Module):
         S = source sequence length
         E = embedding dimensionality
 
-
-        :param task_type:
-        :param batch_io_parser_output:
-        :param input_ids: Tensor containing input token ids. Shape: (N, S)
+        :param task_type: Type of task. ie: func_to_nl_translation.
+        :param batch_io_parser_output: batch of io_parser_output
         :param src_padding_mask: An attention mask to ignore pad-tokens in the source input. Shape (N, S)
         :return: The encoder's final (contextualized) token embeddings. Shape: (N, S, E)
         """
-        batch_embedding_maps = self.embeddings_manager.get_batch_embeddings_maps(batch_io_parser_output, task_type)
+        x = self.embeddings_manager.get_batch_combined_embeddings(batch_io_parser_output, task_type) * math.sqrt(
+            self.hidden_dim)  # (N, S, E)
 
-        x = self.embed(input_ids) * math.sqrt(self.hidden_dim)  # (N, S, E)
-        # x = self.positional_encoding(x)
         x = self.dropout(x)
         for encoder_block in self.encoder_blocks:
             x = encoder_block.forward(x, src_padding_mask=src_padding_mask)

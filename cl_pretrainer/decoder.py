@@ -8,6 +8,7 @@ import torch
 from torch import nn
 from torch.nn.init import xavier_uniform_
 
+from embeddings_manager.embeddings_manager import EmbeddingsManager
 from multi_head_attention import MultiHeadAttention
 from transformer_utils import construct_future_mask
 
@@ -15,7 +16,7 @@ from transformer_utils import construct_future_mask
 class TransformerDecoder(nn.Module):
     def __init__(
         self,
-        embedding: torch.nn.Embedding,
+        embeddings_manager: EmbeddingsManager,
         hidden_dim: int,
         ff_dim: int,
         num_heads: int,
@@ -27,7 +28,7 @@ class TransformerDecoder(nn.Module):
         super().__init__()
 
         self.hidden_dim = hidden_dim
-        self.embed = embedding
+        self.embeddings_manager = embeddings_manager
         self.dropout = nn.Dropout(p=0.1)
         self.decoder_blocks = nn.ModuleList(
             [
@@ -35,6 +36,9 @@ class TransformerDecoder(nn.Module):
                 for _ in range(num_layers)
             ]
         )
+
+        # Projecting the hidden dimension into vocabulary size,
+        # so that we can use softmax and find specific word probability.
         self.output_layer = nn.Linear(hidden_dim, vocab_size, bias=False)
 
         # Note: a linear layer multiplies the input with a transpose of the weight matrix, so no need to do that here.
@@ -53,7 +57,8 @@ class TransformerDecoder(nn.Module):
 
     def forward(
         self,
-        input_tokens: torch.IntTensor,
+        batch_io_parser_output: list[list[dict]],
+        task_type: str,
         encoder_hidden_states: torch.Tensor,
         src_padding_mask: Optional[torch.BoolTensor] = None,
         future_mask: Optional[torch.BoolTensor] = None,
@@ -66,15 +71,16 @@ class TransformerDecoder(nn.Module):
         E = embedding dimensionality
         V = vocabulary size
 
-        :param input_tokens: Decoder input tokens. Shape: (N, T)
+        :param task_type: Type of task. ie: func_to_nl_translation.
+        :param batch_io_parser_output: batch of io_parser_output. Shape (N, T)
         :param encoder_hidden_states: The encoder's final (contextualized) token embeddings. Shape: (N, S, E)
         :param src_padding_mask: An attention mask to ignore pad-tokens in the source input. Shape (N, S)
         :param future_mask: An attention mask to ignore future-tokens in the target input. Shape (T, T)
         :return: Unnormalized logits over the vocabulary for every token in the batch. Shape (N, T, V)
         """
         # (batch_size, sequence_length, hidden_dim)
-        x = self.embed(input_tokens) * math.sqrt(self.hidden_dim)
-        # x = self.positional_encoding(x)
+        x = self.embeddings_manager.get_batch_combined_embeddings(batch_io_parser_output, task_type) * math.sqrt(
+            self.hidden_dim)  # (N, T, E)
         x = self.dropout(x)
 
         for decoder_block in self.decoder_blocks:
