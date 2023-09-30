@@ -27,7 +27,7 @@ class BatchBuilder:
         :param sentences: List of sentences.
         :param add_bos_and_eos: Flag for weather to add BOS and EOS to the Token list.
         :param max_sequence_length: Max length until which padding will be added. If None then no padding.
-        :return:
+        :return: io parser items in a list of list.
         """
         batch_io_parser_output = []
         for sentence in sentences:
@@ -47,7 +47,7 @@ class BatchBuilder:
         :param sentence: A normal sentence string.
         :param add_bos_and_eos: Flag for weather to add BOS and EOS to the Token list.
         :param max_sequence_length: Max length until which padding will be added. If None then no padding.
-        :return:
+        :return: list of dict where each dict is io parser item.
         """
         io_parser_tuples = IoParser().create_value_list_from_input(sentence)
         return Utility.create_io_map_from_io_tuple(
