@@ -1,10 +1,10 @@
 import torch
 from torch import Tensor
 
-from Initial_function_encoder import InitialFunctionEncoder
-from alibibi_positional_encoder import ALiBiBiEncoder
-from category_and_task_encoder import CategoryAndTaskEncoder
-from initial_word_encoder import InitialWordEncoder
+from embeddings_manager.initial_function_encoder import InitialFunctionEncoder
+from embeddings_manager.alibibi_positional_encoder import ALiBiBiEncoder
+from embeddings_manager.category_and_task_encoder import CategoryAndTaskEncoder
+from embeddings_manager.initial_word_encoder import InitialWordEncoder
 from cl_data.src.constants import CategoryType, Constants
 from cl_data.function_representation.src.functions_manager import FunctionManager
 
@@ -48,7 +48,7 @@ class EmbeddingsManager:
         :param batch_io_parser_output: batch of io_parser_output
         :param task_type: Type of task. ie: func_to_nl_translation.
         :return: Return the combined embeddings of list of sentence.
-        Shape [ len(batch_io_parser_output), max_sequence_length 768]
+        Shape [ len(batch_io_parser_output), max_sequence_length, 768]
         """
         batch_item_tensors = torch.empty((0, self.max_sequence_length, 768), dtype=torch.float32)
         for io_parser_output in batch_io_parser_output:

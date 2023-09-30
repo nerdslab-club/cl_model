@@ -7,6 +7,7 @@ import torch
 from torch import nn
 from torch.nn.init import xavier_uniform_
 
+from embeddings_manager.embeddings_manager import EmbeddingsManager
 from vocabulary import Vocabulary
 from encoder import TransformerEncoder
 from decoder import TransformerDecoder
@@ -16,6 +17,7 @@ from transformer_utils import construct_future_mask
 class Transformer(nn.Module):
     def __init__(
         self,
+        batch_size: int,
         hidden_dim: int,
         ff_dim: int,
         num_heads: int,
@@ -30,12 +32,18 @@ class Transformer(nn.Module):
         super().__init__()
         # Because the encoder embedding, and decoder embedding and decoder pre-softmax transformeation share embeddings
         # weights, initialize one here and pass it on.
-        self.embed = nn.Embedding(vocab_size, hidden_dim, padding_idx=padding_idx)
+        self.batch_size = batch_size
+        self.embeddings_manager = EmbeddingsManager(
+            batch_size=batch_size,
+            n_heads=num_heads,
+            max_sequence_length=max_decoding_length,
+            with_mask=False,
+        )
         self.encoder = TransformerEncoder(
-            self.embed, hidden_dim, ff_dim, num_heads, num_layers, dropout_p
+            self.embeddings_manager, hidden_dim, ff_dim, num_heads, num_layers, dropout_p
         )
         self.decoder = TransformerDecoder(
-            self.embed,
+            self.embeddings_manager,
             hidden_dim,
             ff_dim,
             num_heads,
@@ -74,6 +82,7 @@ class TestTransformer(unittest.TestCase):
         torch.manual_seed(seed)
         random.seed(seed)
         np.random.seed(seed)
+        batch_size = 1
 
         # Create (shared) vocabulary and special token indices given a dummy corpus
         corpus = [
@@ -90,6 +99,7 @@ class TestTransformer(unittest.TestCase):
         )
         with torch.no_grad():
             transformer = Transformer(
+                batch_size=batch_size,
                 hidden_dim=512,
                 ff_dim=2048,
                 num_heads=8,
@@ -99,7 +109,7 @@ class TestTransformer(unittest.TestCase):
                 padding_idx=en_vocab.token2index[en_vocab.PAD],
                 bos_idx=en_vocab.token2index[en_vocab.BOS],
                 dropout_p=0.1,
-                tie_output_to_embedding=True,
+                tie_output_to_embedding=False,
             )
             transformer.eval()
 
