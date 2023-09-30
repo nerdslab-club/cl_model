@@ -5,6 +5,8 @@ import torch
 from torch import nn
 from torch.nn.init import xavier_uniform_
 
+from cl_data.src.constants import TaskTypes
+from cl_pretrainer.batch_builder import BatchBuilder
 from embeddings_manager.embeddings_manager import EmbeddingsManager
 from multi_head_attention import MultiHeadAttention
 from vocabulary import Vocabulary
@@ -126,58 +128,66 @@ class EncoderBlock(nn.Module):
 
 class TestTransformerEncoder(unittest.TestCase):
     def test_transformer_encoder_single_sequence_batch(self):
-        # Create vocabulary and special token indices given a dummy corpus
-        batch = ["Hello my name is Joris and I was born with the name Joris."]
-        en_vocab = Vocabulary(batch)
-        en_vocab_size = len(en_vocab.token2index.items())
+        sentences = ["Hello my name is Joris and I was born with the name Joris."]
+        hidden_dim = 768  # !! IMPORTANT CHANGING THIS WON'T WORK, AS USING MODEL FOR TOKENIZATION
+        batch_size = 1
+        num_heads = 8
+        max_encoding_length = 16
+        task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
         with torch.no_grad():
             # Initialize a transformer encoder (qkv_dim is automatically set to hidden_dim // num_heads)
             encoder = TransformerEncoder(
-                embedding=torch.nn.Embedding(en_vocab_size, 512),
-                hidden_dim=512,
+                embeddings_manager=EmbeddingsManager(
+                    batch_size=batch_size,
+                    n_heads=num_heads,
+                    max_sequence_length=max_encoding_length,
+                    with_mask=False,
+                ),
+                hidden_dim=hidden_dim,
                 ff_dim=2048,
-                num_heads=8,
+                num_heads=num_heads,
                 num_layers=2,
                 dropout_p=0.1,
             )
             encoder._reset_parameters()
             encoder.eval()
-            # Construct input tensor
-            input_batch = torch.IntTensor(
-                en_vocab.batch_encode(batch, add_special_tokens=False)
-            )
-
-            output = encoder.forward(input_batch)
-            self.assertEqual(output.shape, (1, 14, 512))
+            batch_io_parser_outputs = BatchBuilder.get_batch_io_parser_output(sentences, True, max_encoding_length)
+            output = encoder.forward(batch_io_parser_outputs, task_type)
+            self.assertEqual(output.shape, (batch_size, max_encoding_length, hidden_dim))
             self.assertEqual(torch.any(torch.isnan(output)), False)
 
     def test_transformer_encoder_multi_sequence_batch(self):
         # Create vocabulary and special token indices given a dummy batch
-        batch = [
+        sentences = [
             "Hello my name is Joris and I was born with the name Joris.",
             "A shorter sequence in the batch",
         ]
-        en_vocab = Vocabulary(batch)
-        en_vocab_size = len(en_vocab.token2index.items())
+        hidden_dim = 768  # !! IMPORTANT CHANGING THIS WON'T WORK, AS USING MODEL FOR TOKENIZATION
+        batch_size = 2
+        num_heads = 8
+        max_encoding_length = 16
+        task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         # Initialize a transformer encoder (qkv_dim is automatically set to hidden_dim // num_heads)
         with torch.no_grad():
             encoder = TransformerEncoder(
-                embedding=torch.nn.Embedding(en_vocab_size, 512),
-                hidden_dim=512,
+                embeddings_manager=EmbeddingsManager(
+                    batch_size=batch_size,
+                    n_heads=num_heads,
+                    max_sequence_length=max_encoding_length,
+                    with_mask=False,
+                ),
+                hidden_dim=hidden_dim,
                 ff_dim=2048,
-                num_heads=8,
+                num_heads=num_heads,
                 num_layers=2,
                 dropout_p=0.1,
             )
             encoder.eval()
-            input_batch = torch.IntTensor(
-                en_vocab.batch_encode(batch, add_special_tokens=False, padding=True)
-            )
-            src_padding_mask = input_batch != en_vocab.token2index[en_vocab.PAD]
-
-            output = encoder.forward(input_batch, src_padding_mask=src_padding_mask)
-            self.assertEqual(output.shape, (2, 14, 512))
+            batch_io_parser_outputs = BatchBuilder.get_batch_io_parser_output(sentences, True, max_encoding_length)
+            src_padding_mask = BatchBuilder.construct_padding_mask(batch_io_parser_outputs)
+            output = encoder.forward(batch_io_parser_outputs, task_type, src_padding_mask=src_padding_mask)
+            self.assertEqual(output.shape, (batch_size, max_encoding_length, hidden_dim))
             self.assertEqual(torch.any(torch.isnan(output)), False)
 
 
