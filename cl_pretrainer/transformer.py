@@ -10,7 +10,6 @@ from cl_data.src.constants import TaskTypes, SpecialTokens
 from cl_pretrainer.batch_builder import BatchBuilder
 from embeddings_manager.embeddings_manager import EmbeddingsManager
 from response_parser.simple_response_parser import SimpleResponseParser
-from vocabulary import Vocabulary
 from encoder import TransformerEncoder
 from decoder import TransformerDecoder
 from transformer_utils import construct_future_mask
