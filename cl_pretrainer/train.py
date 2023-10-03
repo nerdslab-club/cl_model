@@ -7,20 +7,25 @@ import numpy as np
 import torch
 from torch import nn
 
+from cl_data.src.constants import TaskTypes
+from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.checkpoint_manager import CheckPointManager
 from lr_scheduler import NoamOpt
 from transformer import Transformer
 from vocabulary import Vocabulary
 from transformer_utils import construct_batches
+from vocabulary_builder.simple_vocabulary_builder import SimpleVocabBuilder
 
 
 def train(
+    vocabulary: SimpleVocabBuilder,
     transformer: nn.Module,
     scheduler: Any,
     criterion: Any,
-    batches: Dict[str, List[torch.Tensor]],
+    batches: Dict[str, List[List[dict]]],
     masks: Dict[str, List[torch.Tensor]],
     n_epochs: int,
+    task_type: str,
     start_epoch=0,
     is_training=True,
     verbose_log=False,
@@ -28,6 +33,8 @@ def train(
     """
     Main training loop
 
+    :param vocabulary: Vocabulary class instance.
+    :param task_type: The type of task.
     :param start_epoch: From which epoch training should resume.
     :param verbose_log: Log in detailed level with tgt_output and decoder_output
     :param transformer: the transformer model
@@ -46,18 +53,22 @@ def train(
     num_iters = 0
 
     for e in range(start_epoch, start_epoch + n_epochs):
-        for i, (src_batch, src_mask, tgt_batch, tgt_mask) in enumerate(
-            zip(batches["src"], masks["src"], batches["tgt"], masks["tgt"])
+        for i, (src_batch, src_padding_mask, tgt_batch, tgt_future_mask) in enumerate(
+            zip(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY],
+                masks[BatchBuilder.ENCODER_PADDING_MASK_KEY],
+                batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY],
+                masks[BatchBuilder.FUTURE_MASK_KEY])
         ):
-            encoder_output = transformer.encoder(src_batch, src_padding_mask=src_mask)  # type: ignore
+            encoder_output = transformer.encoder(src_batch, task_type, src_padding_mask=src_padding_mask)  # type: ignore
 
             # Perform one decoder forward pass to obtain *all* next-token predictions for every index i given its
             # previous *gold standard* tokens [1,..., i] (i.e. teacher forcing) in parallel/at once.
             decoder_output = transformer.decoder(
                 tgt_batch,
+                task_type,
                 encoder_output,
-                src_padding_mask=src_mask,
-                future_mask=tgt_mask,
+                src_padding_mask=src_padding_mask,
+                future_mask=tgt_future_mask,
             )  # type: ignore
 
             # Align labels with predictions: the last decoder prediction is meaningless because we have no target token
@@ -71,13 +82,14 @@ def train(
             decoder_output = decoder_output[:, :-1, :]
             # print(f"after decoder_output {decoder_output.shape}")
 
+            # convert tgt_batch into integer tokens
+            tgt_batch = torch.tensor(vocabulary.batch_encoder(tgt_batch))
             # The BOS token in the target is also not something we want to compute a loss for.
             # As it's not available in Decoder output.
             # But Padding and EOS is okay, as we will compute decoder output until max_length.
             # Which include EOS and Padding musk tokens.
             # [batch_size, sequence_length]
             tgt_batch = tgt_batch[:, 1:]
-            # print(f"after tgt_batch {tgt_batch.shape}")
 
             # Set pad tokens in the target to -100 so they don't incur a loss
             # tgt_batch[tgt_batch == transformer.padding_idx] = -100
@@ -94,7 +106,7 @@ def train(
                 torch.sum(decoder_output.argmax(dim=-1) == tgt_batch)
             ) / torch.numel(tgt_batch)
 
-            if num_iters % len(batches["src"]) == 0 or not is_training:
+            if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0 or not is_training:
                 print(
                     f"epoch: {e}, num_iters: {num_iters}, batch_loss: {batch_loss}, batch_accuracy: {batch_accuracy}"
                 )
@@ -127,23 +139,14 @@ class TestTransformerTraining(unittest.TestCase):
         device = (
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         )
-        # if device.type == "cpu":
-        #     print("This unit test was not run because it requires a GPU")
-        #     return
-
-        # Hyperparameters
-        # synthetic_corpus_size = 6
-        # n_tokens_in_batch = 10
-        # corpus_source += [
-        #     " ".join(choices(valid_tokens, k=n_tokens_in_batch))
-        #     for _ in range(synthetic_corpus_size)
-        # ]
 
         batch_size = 3
         n_epochs = 50
+        max_encoding_length = 20
+        max_decoding_length = 10
+        task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
-        # Note: the original paper uses byte pair encodings, we simply take each word to be a token.
         corpus_source = [
             "These are the tokens that will end up in our vocabulary",
             "The sun set behind the mountains, painting the sky in hues of orange and pink",
@@ -162,45 +165,43 @@ class TestTransformerTraining(unittest.TestCase):
         ]
         combined_list = corpus_source + corpus_target
 
-        vocab = Vocabulary(combined_list)
-        vocab_size = len(
-            list(vocab.token2index.keys())
-        )  # 110 tokens including bos, eos and pad
-        valid_tokens = list(vocab.token2index.keys())[3:]
+        # Creating the vocabulary
+        vocab = SimpleVocabBuilder(BatchBuilder.get_batch_io_parser_output(combined_list, True, None))
+        vocab_size = len(list(vocab.vocab_item_to_index.keys()))
+        valid_tokens = list(vocab.vocab_item_to_index.keys())[3:]
         print(f"Vocabulary size: {vocab_size}")
 
         # Construct src-tgt aligned input batches (note: the original paper uses dynamic batching based on tokens)
+        # Creating the batch
         corpus = [
-            {"src": src, "tgt": tgt} for src, tgt in zip(corpus_source, corpus_target)
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: src, BatchBuilder.TARGET_LANGUAGE_KEY: tgt} for src, tgt in
+            zip(corpus_source, corpus_target)
         ]
-        batches, masks = construct_batches(
+
+        batches, masks = BatchBuilder.construct_batches_for_transformer(
             corpus,
-            vocab,
             batch_size=batch_size,
-            src_lang_key="src",
-            tgt_lang_key="tgt",
-            device=device,
+            max_encoder_sequence_length=max_encoding_length,
+            max_decoder_sequence_length=max_decoding_length,
         )
 
         print(
             f"valid token {len(valid_tokens)}\n"
             f"corpus {len(corpus)}\n"
-            f"batch size: {batch_size} Number of item in batches {len(batches['src'])},"
+            f"batch size: {batch_size} Number of item in batches {len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY])},"
             f" calculated : {len(corpus)/batch_size}"
         )
 
         # Initialize transformer
         transformer = Transformer(
-            hidden_dim=512,
+            hidden_dim=768,
+            batch_size=batch_size,
             ff_dim=2048,
             num_heads=8,
             num_layers=2,
-            max_decoding_length=25,
+            max_decoding_length=max_decoding_length,
             vocab_size=vocab_size,
-            padding_idx=vocab.token2index[vocab.PAD],
-            bos_idx=vocab.token2index[vocab.BOS],
             dropout_p=0.1,
-            tie_output_to_embedding=True,
         ).to(device)
 
         # Initialize learning rate scheduler, optimizer and loss (note: the original paper uses label smoothing)
@@ -217,12 +218,14 @@ class TestTransformerTraining(unittest.TestCase):
 
         # Start training and verify ~zero loss and >90% accuracy on the last batch
         latest_batch_loss, latest_batch_accuracy = train(
-            transformer,
-            scheduler,
-            criterion,
-            batches,
-            masks,
+            vocabulary=vocab,
+            transformer=transformer,
+            scheduler=scheduler,
+            criterion=criterion,
+            batches=batches,
+            masks=masks,
             n_epochs=n_epochs,
+            task_type=task_type,
             is_training=True,
             verbose_log=False,
         )
