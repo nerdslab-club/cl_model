@@ -8,9 +8,11 @@ import torch
 from torch import nn
 from torch.nn.init import xavier_uniform_
 
+from cl_data.src.constants import TaskTypes
+from cl_pretrainer.batch_builder import BatchBuilder
 from embeddings_manager.embeddings_manager import EmbeddingsManager
 from multi_head_attention import MultiHeadAttention
-from transformer_utils import construct_future_mask
+# from transformer_utils import construct_future_mask
 
 
 class TransformerDecoder(nn.Module):
@@ -23,7 +25,6 @@ class TransformerDecoder(nn.Module):
         num_layers: int,
         vocab_size: int,
         dropout_p: float,
-        tie_output_to_embedding: Optional[bool] = True,
     ):
         super().__init__()
 
@@ -46,8 +47,9 @@ class TransformerDecoder(nn.Module):
         # between the embedding layer and the output (softmax) layer.
         # This means that the embedding layer and the output layer use
         # the same set of weights to transform the input and produce the output probabilities.
-        if tie_output_to_embedding:
-            self.output_layer.weight = nn.Parameter(self.embed.weight)
+        # tie_output_to_embedding: Optional[bool] = True,
+        # if tie_output_to_embedding:
+        #     self.output_layer.weight = nn.Parameter(self.embed.weight)
 
     def _reset_parameters(self):
         """Perform xavier weight initialization"""
@@ -190,10 +192,12 @@ class TestTransformerDecoder(unittest.TestCase):
         with torch.no_grad():
             batch_size = 2
             src_seq_len = 10
-            hidden_dim = 512
+            hidden_dim = 768
             vocab_size = 2000
             num_layers = 1
             num_heads = 8
+            max_decoding_length = 1 # Not used anymore
+            task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
             # Prepare fake encoder hidden states and padding masks
             encoder_output = torch.randn((batch_size, src_seq_len, hidden_dim))
@@ -203,26 +207,34 @@ class TestTransformerDecoder(unittest.TestCase):
 
             # Initialize the decoder, perform xavier init and set to evaluation mode
             decoder = TransformerDecoder(
-                embedding=torch.nn.Embedding(vocab_size, hidden_dim),
+                embeddings_manager=EmbeddingsManager(
+                    batch_size=batch_size,
+                    n_heads=num_heads,
+                    max_sequence_length=max_decoding_length,
+                    with_mask=False,
+                ),
                 hidden_dim=hidden_dim,
                 ff_dim=2048,
                 num_heads=num_heads,
                 num_layers=num_layers,
                 dropout_p=0.1,
                 vocab_size=vocab_size,
-                tie_output_to_embedding=True,
             )
             decoder._reset_parameters()
             decoder.eval()
 
-            # Prepare decoder input, mask, perform a decoding step, take the argmax over the softmax of the last token
-            bos_token_id = 1
-            # and iteratively feed the input+prediction back in.
-            decoder_input = torch.IntTensor([[bos_token_id], [bos_token_id]])
+            # Iteratively feed the decoder input back in using teacher forcing
+            sentences = [
+                "Hello my name is Joris and I was born with the name Joris.",
+                "A shorter sequence in the batch",
+            ]
+            decoder_input = BatchBuilder.get_batch_io_parser_output(sentences, True, 1)
             future_mask = None
             for i in range(3):
-                decoder_output = decoder(
+                index = i + 1
+                decoder_output = decoder.forward(
                     decoder_input,
+                    task_type,
                     encoder_output,
                     src_padding_mask=src_padding_mask,
                     future_mask=future_mask,
@@ -230,8 +242,11 @@ class TestTransformerDecoder(unittest.TestCase):
                 predicted_tokens = torch.argmax(
                     decoder_output[:, -1, :], dim=-1
                 ).unsqueeze(1)
-                decoder_input = torch.cat((decoder_input, predicted_tokens), dim=-1)
-                future_mask = construct_future_mask(decoder_input.shape[1])
+                print(f"Predicted token index: {predicted_tokens}")
+
+                # Teacher forcing
+                decoder_input = BatchBuilder.get_batch_io_parser_output(sentences, True, index + 1)
+                future_mask = BatchBuilder.construct_future_mask(index + 1)
 
                 self.assertEqual(decoder_output.shape, (batch_size, i + 1, vocab_size))
                 # softmax entropy should not be 0
@@ -248,65 +263,6 @@ class TestTransformerDecoder(unittest.TestCase):
                 residual connection after the feed forward layers. In practice, however, this is not an issue. Training
                 will take care of it.
                 """
-                self.assertEqual(torch.all(decoder_input == bos_token_id), True)
-
-    def test_multi_layer_transformer_decoder_inference(self):
-        """
-        Test two forward passes, simulating two inference decoding steps
-        """
-        seed = 0
-        torch.manual_seed(seed)
-        random.seed(seed)
-        np.random.seed(seed)
-
-        with torch.no_grad():
-            batch_size = 2
-            src_seq_len = 10
-            hidden_dim = 512
-            vocab_size = 2000
-
-            # Prepare fake encoder hidden states and padding masks
-            encoder_output = torch.randn((batch_size, src_seq_len, hidden_dim))
-            src_padding_mask = torch.BoolTensor(
-                [[1, 1, 1, 1, 1, 1, 1, 1, 0, 0], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]
-            )
-
-            # Initialize the decoder, perform xavier init and set to evaluation mode
-            decoder = TransformerDecoder(
-                embedding=torch.nn.Embedding(vocab_size, hidden_dim),
-                hidden_dim=hidden_dim,
-                ff_dim=2048,
-                num_heads=8,
-                num_layers=6,
-                dropout_p=0.1,
-                vocab_size=vocab_size,
-                tie_output_to_embedding=False,
-            )
-            decoder._reset_parameters()
-            decoder.eval()
-
-            # Prepare decoder input, mask, perform a decoding step, take the argmax over the softmax of the last token
-            bos_token_id = 10
-            # and iteratively feed the input+prediction back in.
-            decoder_input = torch.IntTensor([[bos_token_id], [bos_token_id]])
-            future_mask = None
-            for i in range(3):
-                decoder_output = decoder(
-                    decoder_input,
-                    encoder_output,
-                    src_padding_mask=src_padding_mask,
-                    future_mask=future_mask,
-                )
-                predicted_tokens = torch.argmax(
-                    decoder_output[:, -1, :], dim=-1
-                ).unsqueeze(1)
-                decoder_input = torch.cat((decoder_input, predicted_tokens), dim=-1)
-                future_mask = construct_future_mask(decoder_input.shape[1])
-
-                self.assertEqual(decoder_output.shape, (batch_size, i + 1, vocab_size))
-                # softmax entropy should not be 0
-                self.assertEqual(torch.any(decoder_output == 1), False)
-                self.assertEqual(torch.all(decoder_input == bos_token_id), False)
 
 
 if __name__ == "__main__":

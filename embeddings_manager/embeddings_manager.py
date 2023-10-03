@@ -48,9 +48,9 @@ class EmbeddingsManager:
         :param batch_io_parser_output: batch of io_parser_output
         :param task_type: Type of task. ie: func_to_nl_translation.
         :return: Return the combined embeddings of list of sentence.
-        Shape [ len(batch_io_parser_output), max_sequence_length, 768]
+        Shape [ len(batch_io_parser_output), len(io_parser_output), 768]
         """
-        batch_item_tensors = torch.empty((0, self.max_sequence_length, 768), dtype=torch.float32)
+        batch_item_tensors = torch.empty((0, len(batch_io_parser_output[0]), 768), dtype=torch.float32)
         for io_parser_output in batch_io_parser_output:
             item_tensors = self.get_sentence_combined_embeddings(io_parser_output, task_type)
             batch_item_tensors = torch.cat((batch_item_tensors, item_tensors.unsqueeze(0)), dim=0)
