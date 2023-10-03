@@ -9,7 +9,6 @@ from cl_data.src.constants import TaskTypes
 from cl_pretrainer.batch_builder import BatchBuilder
 from embeddings_manager.embeddings_manager import EmbeddingsManager
 from multi_head_attention import MultiHeadAttention
-from vocabulary import Vocabulary
 
 
 class TransformerEncoder(nn.Module):
