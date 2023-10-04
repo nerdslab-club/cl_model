@@ -5,8 +5,6 @@ from torch import Tensor
 
 
 class ALiBiBiEncoder:
-    def __init__(self):
-        pass
 
     @staticmethod
     def get_slopes(n_heads: int):
