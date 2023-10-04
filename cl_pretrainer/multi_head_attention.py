@@ -6,8 +6,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from cl_pretrainer.batch_builder import BatchBuilder
 from embeddings_manager.alibibi_positional_encoder import ALiBiBiEncoder
-from transformer_utils import construct_future_mask
 
 
 class MultiHeadAttention(nn.Module):
@@ -322,7 +322,7 @@ class TestMultiHeadAttention(unittest.TestCase):
     def test_future_masking(self):
         batch_size, n_heads, seq_len = 2, 2, 3
         logits = torch.randn(batch_size, n_heads, seq_len, seq_len, dtype=torch.float)
-        future_mask = construct_future_mask(seq_len)
+        future_mask = BatchBuilder.construct_future_mask(seq_len)
         self.assertEqual(future_mask.shape, (3, 3))
 
         masked_logits = MultiHeadAttention(512, num_heads=n_heads).mask_logits(

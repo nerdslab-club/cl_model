@@ -1,3 +1,4 @@
+import unittest
 from typing import Dict, List, Tuple, Optional
 
 import torch
@@ -41,7 +42,8 @@ class BatchBuilder:
         return batch_io_parser_output
 
     @staticmethod
-    def get_sentence_io_parser_output(sentence: str, add_bos_and_eos: bool, max_sequence_length: int | None) -> list[dict]:
+    def get_sentence_io_parser_output(sentence: str, add_bos_and_eos: bool, max_sequence_length: int | None) -> list[
+        dict]:
         """Given a sentence it called io parser on the sentence with special tokens and paddings
 
         :param sentence: A normal sentence string.
@@ -63,7 +65,7 @@ class BatchBuilder:
             max_encoder_sequence_length: int,
             max_decoder_sequence_length: int,
             device: Optional[torch.device] = None,
-    ) -> Tuple[Dict[str, list[list[dict]]], Dict[str, List[torch.Tensor]]]:
+    ) -> Tuple[Dict[str, list[list[list[dict]]]], Dict[str, List[torch.Tensor]]]:
         """ Constructs batches given sample corpus.
 
         :param corpus: The input corpus is a list of aligned source and target sequences, packed in a dictionary.
@@ -155,6 +157,58 @@ class BatchBuilder:
              batch_io_parser_output], dtype=torch.bool)
 
         return padding_mask
+
+
+class TestUtils(unittest.TestCase):
+    def test_construct_future_mask(self):
+        mask = BatchBuilder.construct_future_mask(3)
+        torch.testing.assert_close(
+            mask,
+            torch.BoolTensor(
+                [[True, False, False], [True, True, False], [True, True, True]]
+            ),
+        )
+
+    def test_construct_future_mask_first_decoding_step(self):
+        mask = BatchBuilder.construct_future_mask(1)
+        torch.testing.assert_close(
+            mask,
+            torch.BoolTensor([[True]]),
+        )
+
+    def test_construct_batches_for_transformer(self):
+        max_encoding_length = 16
+        max_decoding_length = 16
+        batch_size = 2
+        corpus = [
+            {
+                BatchBuilder.SOURCE_LANGUAGE_KEY: "This is an english sentence.",
+                BatchBuilder.TARGET_LANGUAGE_KEY: "Dit is een Nederlandse zin.",
+            },
+            {
+                BatchBuilder.SOURCE_LANGUAGE_KEY: "The weather is nice today.",
+                BatchBuilder.TARGET_LANGUAGE_KEY: "Het is lekker weer vandaag.",
+            },
+            {
+                BatchBuilder.SOURCE_LANGUAGE_KEY: "Yesterday I drove to a city called Amsterdam in my brand new car.",
+                BatchBuilder.TARGET_LANGUAGE_KEY: "Ik reed gisteren in mijn gloednieuwe auto naar Amsterdam.",
+            },
+            {
+                BatchBuilder.SOURCE_LANGUAGE_KEY: "You can pick up your laptop at noon tomorrow.",
+                BatchBuilder.TARGET_LANGUAGE_KEY: "Je kunt je laptop morgenmiddag komen ophalen.",
+            },
+        ]
+        batches, masks = BatchBuilder.construct_batches_for_transformer(
+            corpus=corpus,
+            batch_size=batch_size,
+            max_encoder_sequence_length=max_encoding_length,
+            max_decoder_sequence_length=max_decoding_length,
+        )
+        # batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY].Shape[batch_item, batch_size, max_encoding_length]
+        self.assertEqual((len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]),
+                          len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY][0]),
+                          len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY][0][0])),
+                         (len(corpus)//batch_size, batch_size, max_encoding_length))
 
 
 if __name__ == "__main__":

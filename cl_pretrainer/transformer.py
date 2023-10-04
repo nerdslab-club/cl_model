@@ -12,7 +12,6 @@ from embeddings_manager.embeddings_manager import EmbeddingsManager
 from response_parser.simple_response_parser import SimpleResponseParser
 from encoder import TransformerEncoder
 from decoder import TransformerDecoder
-from transformer_utils import construct_future_mask
 from vocabulary_builder.simple_vocabulary_builder import SimpleVocabBuilder
 
 
@@ -97,7 +96,7 @@ class TestTransformer(unittest.TestCase):
 
             # Prepare decoder input and mask and start decoding
             decoder_input = BatchBuilder.get_batch_io_parser_output(corpus, True, 1)
-            future_mask = construct_future_mask(seq_len=1)
+            future_mask = BatchBuilder.construct_future_mask(seq_len=1)
 
             # Create vocabulary
             vocabulary = SimpleVocabBuilder(encoder_input)
