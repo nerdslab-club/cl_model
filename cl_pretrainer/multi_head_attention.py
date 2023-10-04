@@ -195,7 +195,7 @@ class MultiHeadAttention(nn.Module):
             n_heads = attn_logits.size(1)
             max_sequence_length = attn_logits.size(2)
             with_mask = future_mask is not None
-            alibibi_bias = ALiBiBiEncoder().get_alibi_biases(
+            alibibi_bias = ALiBiBiEncoder.get_alibi_biases(
                 batch_size=batch_size,
                 n_heads=n_heads,
                 sequence_length=max_sequence_length,
