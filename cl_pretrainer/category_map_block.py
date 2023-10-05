@@ -29,33 +29,31 @@ class CategoryMapBlock(nn.Module):
     def forward(self,
                 x: torch.FloatTensor,
                 function_param_token_mask: Optional[tuple[bool, Tensor]],
-                future_mask: Optional[torch.BoolTensor] = None,
                 ):
-        """Perform the category map block forward pass given the common block output with function param token mask
-        with optional attention masks
+        """Perform the category map block forward pass given the common block output with function param token mask.
+        As common block is using both padding mask and future mask we are not using any mask in this layer.
 
         :param x:Tensor containing the output of the previous decoder block. Shape: (N, S, E)
         :param function_param_token_mask: If it's a function param then it will have values,
          like (True, IFT) otherwise, (False, None).
-        :param future_mask: An attention mask to ignore future-tokens in the target input. Shape (S, S)
         :return: Updated intermediate decoder category map block token embeddings. Shape: (N, S, E)
         """
-        # initial_function_embeddings need to be specific based on token
-        # x -> input embeddings
-        # future mask
-        # is_function_param_token_mask
 
         # Self attention (with future masking during training)
-        output = self.category_map_block_dropout1(self.category_map_block_self_mha.forward(x, future_mask=future_mask))
+        output = self.category_map_block_dropout1(self.category_map_block_self_mha.forward(x))
         x = self.category_map_block_layer_norm1(x + output)
 
         # TODO Replace cross attention tokens using cross_mha in the x.
+        output = self.category_map_block_dropout2(self.update_function_params_token_using_cross_attention())
         x = self.category_map_block_layer_norm2(x + output)
 
         # Feed forward layers
         output = self.category_map_block_dropout3(self.category_map_block_feed_forward(x))
         x = self.category_map_block_layer_norm3(x + output)
         return x
+
+    def update_function_params_token_using_cross_attention(self) -> Tensor:
+        # TODO complete this function
         pass
 
     def save_model(self, path: str):

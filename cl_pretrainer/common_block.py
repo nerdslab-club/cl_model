@@ -12,9 +12,9 @@ class CommonBlock(nn.Module):
         # Multi head attention layer
         self.common_block_self_mha = MultiHeadAttention(hidden_dim, num_heads)
         # Dropout is also known as regularization
-        self.common_block_dropout_sa = nn.Dropout(p=dropout_p)
+        self.common_block_dropout = nn.Dropout(p=dropout_p)
         # Normalizing layer for propagating the token values
-        self.common_block_layer_norm_sa = nn.LayerNorm(hidden_dim)
+        self.common_block_layer_norm = nn.LayerNorm(hidden_dim)
 
     def forward(
         self,
@@ -32,12 +32,12 @@ class CommonBlock(nn.Module):
         :param future_mask: An attention mask to ignore future-tokens in the target input. Shape (S, S)
         :return: Updated intermediate decoder common block (contextualized) token embeddings. Shape: (N, S, E)
         """
-        output = self.common_block_dropout_sa(
+        output = self.common_block_dropout(
             self.common_block_self_mha.forward(
                 x, src_padding_mask=src_padding_mask, future_mask=future_mask
             )
         )
-        x = self.common_block_layer_norm_sa(x + output)
+        x = self.common_block_layer_norm(x + output)
         return x
 
     def save_model(self, path: str):
