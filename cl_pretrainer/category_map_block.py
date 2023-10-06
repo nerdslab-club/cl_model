@@ -59,10 +59,27 @@ class CategoryMapBlock(nn.Module):
             x: torch.FloatTensor,
             function_param_token_infos: list[dict],
     ) -> Tensor:
-        # TODO complete this function
+        """
+        Calculate cross attention for funtion params and replace original tensors slice with that.
 
-
-        pass
+        :param x: original tensor where we will replace some value with cross attention tensors
+        :param function_param_token_infos: It is a list of function param token info, each info is a map. ie.
+        {
+            "start": (r,c),
+            "end": (r,c),
+            "encoder_hidden_state": Tensor, # Embeddings of the function in question found using initial function encoder
+            "token": Tensor, # Embedding of category map token of function params.
+        };
+        :return: Modified tensor after replacing with cross attention values.
+        """
+        for param_info in function_param_token_infos:
+            start_row, start_col = param_info["start"]
+            end_row, end_col = param_info["end"]
+            encoder_hidden_state = param_info["encoder_hidden_state"]
+            token_tensor = param_info["token_tensors"]
+            cross_attention_output = self.category_map_block_cross_mha.forward(token_tensor, encoder_hidden_state)
+            x[start_row, start_col:end_col, :] = cross_attention_output
+        return x
 
     def save_model(self, path: str):
         torch.save(self.state_dict(), path)
