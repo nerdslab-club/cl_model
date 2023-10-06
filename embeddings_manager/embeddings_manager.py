@@ -216,7 +216,7 @@ class EmbeddingsManager:
 
     def get_function_token_embedding(self, token: any, category_type) -> Tensor | None:
         if category_type == CategoryType.FUNCTION.value:
-            return self.initial_function_encoder.get_perfect_function_token_embedding(
+            return self.initial_function_encoder.get_perfect_function_signature_token_embedding(
                 token
             )
         else:
