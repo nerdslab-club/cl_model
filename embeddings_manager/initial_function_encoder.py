@@ -109,6 +109,36 @@ class InitialFunctionEncoder:
         # reshaped_tensor = padded_tensor.squeeze()
         return padded_tensor
 
+    def _get_raw_function_signature_embedding(self, function_ref: callable):
+        """Calculate the hidden states embedding for the function tokens
+
+        :param function_ref: Reference to the function.
+        :return: hidden states embedding of size [1 * n * 768]
+        """
+        func_signature_str = self.function_manager.get_only_function_signature_as_string(function_ref)
+        inputs = self.tokenizer(func_signature_str, return_tensors="pt")
+
+        outputs = self.model(**inputs)
+        hidden_states = outputs.hidden_states
+        return hidden_states
+
+    def get_perfect_function_signature_token_embedding(self, function_ref: callable, max_length=40):
+        """Reshape the last hidden state of the embedding into [max_length, 768] tensor
+
+        :param function_ref: Reference to the function.
+        :param max_length: Max length for token that is supported.
+        :return: Last hidden state embedding of size [n * 768]
+        """
+        hidden_states_embedding = self._get_raw_function_signature_embedding(function_ref)
+
+        # Pad the tensor to the desired shape [40, 768]
+        padded_tensor = functional.pad(
+            hidden_states_embedding[0],
+            (0, 0, 0, max_length - hidden_states_embedding[0].shape[1]),
+        )
+        # reshaped_tensor = padded_tensor.squeeze()
+        return padded_tensor
+
     def get_logits(self, function_name: str, max_length=300):
         """Calculate the logits for the given function.
 
@@ -153,3 +183,12 @@ class InitialFunctionEncoder:
             (documentation_embedding, siamese_embedding), dim=dim
         )
         return concatenated_embedding
+
+
+if __name__ == "__main__":
+    def average(numbers: list) -> float:
+        return sum(numbers) / len(numbers)
+
+    initial_function_embeddings = InitialFunctionEncoder().get_perfect_function_signature_token_embedding(average)
+    print(initial_function_embeddings.shape)
+
