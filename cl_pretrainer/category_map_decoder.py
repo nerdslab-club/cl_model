@@ -1,10 +1,13 @@
 import math
+import unittest
 from typing import Optional
 
 import torch
 from torch import nn, Tensor
 from torch.nn.init import xavier_uniform_
 
+from cl_data.src.constants import TaskTypes
+from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.category_map_block import CategoryMapBlock
 from cl_pretrainer.common_block import CommonBlock
 from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
@@ -99,3 +102,51 @@ class CategoryMapDecoder(nn.Module):
     def load_saved_model_from_state_dict(self, state_dict: dict):
         self.load_state_dict(state_dict)
         self.eval()
+
+
+class TestCategoryMapDecoder(unittest.TestCase):
+
+    def test_category_map_decoder(self):
+        batch_size = 2
+        num_heads = 8
+        max_decoding_length = 10
+        hidden_dim = 768
+        ff_dim = 2048
+        num_layers = 2
+        dropout_p = 0.1
+        task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
+        sentences = [
+            "Hello my name is Joaa and my parents gave the name Joaa.",
+            "Hello my name is Prattoy and my grandma gave the name Prattoy."
+        ]
+        with torch.no_grad():
+            category_map_decoder = CategoryMapDecoder(
+                EmbeddingsManager(
+                    batch_size=batch_size,
+                    n_heads=num_heads,
+                    max_sequence_length=max_decoding_length,
+                    with_mask=False,
+                ),
+                hidden_dim,
+                ff_dim,
+                num_heads,
+                num_layers,
+                dropout_p
+            )
+            category_map_decoder._reset_parameters()
+            category_map_decoder.eval()
+
+            batch_io_parser = BatchBuilder.get_batch_io_parser_output(sentences, True, 4)
+
+            for i in range(1):
+                category_map_decoder.forward(batch_io_parser, task_type)
+                # batch_io_parser_output: list[list[dict]],
+                # task_type: str,
+                # src_padding_mask: Optional[torch.BoolTensor] = None,
+                # future_mask: Optional[torch.BoolTensor] = None,
+    # self.assertEqual(output.shape, (batch_size, max_encoding_length, hidden_dim))
+    # self.assertEqual(torch.any(torch.isnan(output)), False)
+
+
+if __name__ == "__main__":
+    unittest.main()
