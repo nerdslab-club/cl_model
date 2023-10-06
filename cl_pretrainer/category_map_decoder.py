@@ -2,11 +2,12 @@ import math
 from typing import Optional
 
 import torch
-from torch import nn
+from torch import nn, Tensor
 from torch.nn.init import xavier_uniform_
 
 from cl_pretrainer.category_map_block import CategoryMapBlock
 from cl_pretrainer.common_block import CommonBlock
+from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
 from embeddings_manager.embeddings_manager import EmbeddingsManager
 
 
@@ -65,7 +66,10 @@ class CategoryMapDecoder(nn.Module):
         :return: E1 -> Embedding for category. Shape (N, S, E)
         """
         # (batch_size, sequence_length, hidden_dim)
-        x, m = self.embeddings_manager.get_batch_combined_embeddings_with_mask(batch_io_parser_output, task_type)
+        x, cross_attention_mask, batch_of_encoder_hidden_states = self.embeddings_manager.get_batch_combined_embeddings_with_mask(
+            batch_io_parser_output,
+            task_type
+        )
         x = x * math.sqrt(self.hidden_dim)  # (N, S, E)
 
         x = self.category_map_decoder_dropout(x)
@@ -74,8 +78,14 @@ class CategoryMapDecoder(nn.Module):
             if isinstance(decoder_block, CommonBlock):
                 x = decoder_block.forward(x, src_padding_mask, future_mask)
             elif isinstance(decoder_block, CategoryMapBlock):
-                # TODO complete CategoryMapBlock class.
-                x = decoder_block.forward(x, )
+                x = decoder_block.forward(
+                    x,
+                    PreTrainerUtils.create_function_param_token_infos(
+                        x,
+                        cross_attention_mask,
+                        batch_of_encoder_hidden_states,
+                    ),
+                )
 
         return x
 

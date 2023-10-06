@@ -92,12 +92,16 @@ class EmbeddingsManager:
         """
         item_tensors = torch.empty((0, 768), dtype=torch.float32)
         for io_parser_output_item in io_parser_output:
+            token: any = io_parser_output_item[Constants.TOKEN]
+            category_map: dict = io_parser_output_item[Constants.CATEGORY]
+            category_type: str = category_map[Constants.CATEGORY_TYPE]
+
             token_embedding = self.get_token_embedding(
-                io_parser_output_item[Constants.TOKEN],
-                io_parser_output_item[Constants.CATEGORY],
+                token,
+                category_type,
             )
             category_and_task_embedding = self.get_category_and_task_embedding(
-                io_parser_output_item[Constants.CATEGORY],
+                category_map,
                 task_type,
             )
             combined_embedding = self.get_combined_embedding(
@@ -111,15 +115,16 @@ class EmbeddingsManager:
 
     def get_batch_combined_embeddings_with_mask(
         self, batch_io_parser_output: list[list[dict]], task_type: str
-    ) -> tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor, list[list[Tensor]]]:
         """Batch of the io parser output, it converts every io parser item into
-        it's combined embedding and cross attention mask
+        it's combined embedding and cross attention mask and batch of encoder hidden state
 
         :param batch_io_parser_output: batch of io_parser_output
         :param task_type: Type of task. ie: func_to_nl_translation.
         :return: Return the combined embeddings of list of sentence.
         Shape [ len(batch_io_parser_output), len(io_parser_output), 768]
         and cross attention mask. Shape[len(batch_io_parser_output), len(io_parser_output)]
+        and batch of encoder hidden state.
         """
         batch_item_tensors = torch.empty(
             (0, len(batch_io_parser_output[0]), 768), dtype=torch.float32
@@ -127,8 +132,9 @@ class EmbeddingsManager:
         batch_function_param_mask = torch.empty(
             (0, len(batch_io_parser_output[0])), dtype=torch.bool
         )
+        batch_encoder_hidden_states = []
         for io_parser_output in batch_io_parser_output:
-            item_tensors, mask_tensors = self.get_sentence_combined_embeddings(
+            item_tensors, mask_tensors, list_of_encoder_hidden_states = self.get_sentence_combined_embeddings_with_mask(
                 io_parser_output, task_type
             )
             batch_item_tensors = torch.cat(
@@ -137,13 +143,14 @@ class EmbeddingsManager:
             batch_function_param_mask = torch.cat(
                 (batch_function_param_mask, mask_tensors.unsqueeze(0)), dim=0
             )
-        return batch_item_tensors, batch_function_param_mask
+            batch_encoder_hidden_states.append(list_of_encoder_hidden_states)
+        return batch_item_tensors, batch_function_param_mask, batch_encoder_hidden_states
 
     def get_sentence_combined_embeddings_with_mask(
         self, io_parser_output: list[dict], task_type: str
-    ) -> tuple[Tensor, Tensor]:
+    ) -> tuple[Tensor, Tensor, list[Tensor]]:
         """Given the io parser output it convert every io parser item into
-        it's combined embedding and cross attention mask
+        it's combined embedding and cross attention mask and list of encoder hidden state
 
         :param io_parser_output: input string -> io parser
         [
@@ -169,39 +176,44 @@ class EmbeddingsManager:
         :param task_type: Type of task. ie: func_to_nl_translation.
         :return: Return the combined embeddings of sentence. Shape [ len(io_parser_output), 768]
         and cross attention mask. Shape[len(io_parser_output)]
+        and list of encoder hidden state.
         """
         item_tensors = torch.empty((0, 768), dtype=torch.float32)
         mask_tensors = torch.empty(0, dtype=torch.bool)
+        list_of_encoder_hidden_states = []
+
         for io_parser_output_item in io_parser_output:
+            token: any = io_parser_output_item[Constants.TOKEN]
+            category_map: dict = io_parser_output_item[Constants.CATEGORY]
+            category_type: str = category_map[Constants.CATEGORY_TYPE]
+            category_sub_subtype: str = category_map[Constants.CATEGORY_SUB_SUB_TYPE]
+
             token_embedding = self.get_token_embedding(
-                io_parser_output_item[Constants.TOKEN],
-                io_parser_output_item[Constants.CATEGORY],
+                token,
+                category_type,
             )
             category_and_task_embedding = self.get_category_and_task_embedding(
-                io_parser_output_item[Constants.CATEGORY],
+                category_map,
                 task_type,
             )
             combined_embedding = self.get_combined_embedding(
                 token_embedding,
                 category_and_task_embedding,
             )
+            # Creating the combined embedding tensor
             item_tensors = torch.cat(
                 (item_tensors, combined_embedding.unsqueeze(0)), dim=0
             )
-
+            # Creating cross attention mask
             is_function_param = torch.tensor(
-                [
-                    EmbeddingsManager.is_function_param_token(
-                        io_parser_output_item[Constants.CATEGORY][
-                            Constants.CATEGORY_SUB_SUB_TYPE
-                        ],
-                    )
-                ],
+                [EmbeddingsManager.is_function_param_token(category_sub_subtype)],
                 dtype=torch.bool,
             )
             mask_tensors = torch.cat((mask_tensors, is_function_param), dim=0)
+            if EmbeddingsManager.is_function_token(category_type):
+                list_of_encoder_hidden_states.append(self.get_function_token_embedding(token, category_type))
 
-        return item_tensors, mask_tensors
+        return item_tensors, mask_tensors, list_of_encoder_hidden_states
 
     def get_batch_embeddings_maps(
         self, batch_io_parser_output: list[list[dict]], task_type: str
@@ -324,7 +336,7 @@ class EmbeddingsManager:
         )
 
     def get_function_token_embedding(self, token: any, category_type) -> Tensor | None:
-        if category_type == CategoryType.FUNCTION.value:
+        if EmbeddingsManager.is_function_token(category_type):
             return self.initial_function_encoder.get_perfect_function_signature_token_embedding(
                 token
             )
@@ -375,6 +387,10 @@ class EmbeddingsManager:
         ):
             return True
         return False
+
+    @staticmethod
+    def is_function_token(category_type: str) -> bool:
+        return True if category_type == CategoryType.FUNCTION.value else False
 
 
 if __name__ == "__main__":
