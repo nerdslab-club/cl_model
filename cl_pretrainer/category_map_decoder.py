@@ -65,16 +65,17 @@ class CategoryMapDecoder(nn.Module):
         :return: E1 -> Embedding for category. Shape (N, S, E)
         """
         # (batch_size, sequence_length, hidden_dim)
-        x = self.embeddings_manager.get_batch_combined_embeddings(batch_io_parser_output, task_type) \
-            * math.sqrt(self.hidden_dim)  # (N, S, E)
+        x, m = self.embeddings_manager.get_batch_combined_embeddings_with_mask(batch_io_parser_output, task_type)
+        x = x * math.sqrt(self.hidden_dim)  # (N, S, E)
+
         x = self.category_map_decoder_dropout(x)
 
         for decoder_block in self.category_map_decoder_blocks:
             if isinstance(decoder_block, CommonBlock):
-                x = decoder_block(x, src_padding_mask, future_mask)
+                x = decoder_block.forward(x, src_padding_mask, future_mask)
             elif isinstance(decoder_block, CategoryMapBlock):
                 # TODO complete CategoryMapBlock class.
-                x = decoder_block(x)
+                x = decoder_block.forward(x, )
 
         return x
 
