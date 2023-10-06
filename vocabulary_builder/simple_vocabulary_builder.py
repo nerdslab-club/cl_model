@@ -2,7 +2,6 @@ import unittest
 from dataclasses import dataclass
 from typing import Optional
 
-from torch import Tensor
 
 from cl_data.src.constants import (
     SpecialTokens,
