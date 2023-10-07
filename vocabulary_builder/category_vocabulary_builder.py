@@ -25,6 +25,25 @@ class CategoryVocabItem:
         )
 
 
+@dataclass
+class OutputTokenClassificationHeadVocabItem:
+    category_type: str
+    category_subtype: str
+
+    def __hash__(self):
+        """
+        Calculate a hash value based on the fields that determine equality
+
+        :return: The calculated hash
+        """
+        return hash(
+            (
+                self.category_type,
+                self.category_subtype,
+            )
+        )
+
+
 class CategoryVocabBuilder:
     """
     integer token -> Category vocab item -> Category map
@@ -65,7 +84,7 @@ class CategoryVocabBuilder:
         return [self.category_vocab_item_to_index[vocab_item] for vocab_item in vocab_items]
 
     def batch_encoder(
-        self, batch_io_parser_output: list[list[dict]]
+            self, batch_io_parser_output: list[list[dict]]
     ) -> list[list[int]]:
         """
         Batch tokenize io parser output -> category vocab items -> integer token

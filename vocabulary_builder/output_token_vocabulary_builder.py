@@ -1,0 +1,1 @@
+# create multiple vocabulary for token based on unique category type and subtype.
