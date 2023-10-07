@@ -8,7 +8,6 @@ from torch.nn.init import xavier_uniform_
 
 from cl_data.src.constants import TaskTypes
 from cl_pretrainer.batch_builder import BatchBuilder
-from cl_pretrainer.category_map_decoder import CategoryMapDecoder
 from cl_pretrainer.common_block import CommonBlock
 from cl_pretrainer.output_token_block import OutputTokenBlock
 from embeddings_manager.embeddings_manager import EmbeddingsManager
@@ -93,7 +92,7 @@ class OutputTokenDecoder(nn.Module):
         self.eval()
 
 
-class TestCategoryMapDecoder(unittest.TestCase):
+class TestOutputTokenDecoder(unittest.TestCase):
 
     def test_output_token_decoder(self):
         """
