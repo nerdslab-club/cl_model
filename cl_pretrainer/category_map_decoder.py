@@ -3,7 +3,7 @@ import unittest
 from typing import Optional
 
 import torch
-from torch import nn, Tensor
+from torch import nn
 from torch.nn.init import xavier_uniform_
 
 from cl_data.src.constants import TaskTypes
@@ -107,6 +107,10 @@ class CategoryMapDecoder(nn.Module):
 class TestCategoryMapDecoder(unittest.TestCase):
 
     def test_category_map_decoder(self):
+        """
+        Test three forward pass of category map decoder and check if output tensor shape is as expected.
+        :return: None
+        """
         batch_size = 2
         num_heads = 8
         max_decoding_length = 10
@@ -121,31 +125,36 @@ class TestCategoryMapDecoder(unittest.TestCase):
         ]
         with torch.no_grad():
             category_map_decoder = CategoryMapDecoder(
-                EmbeddingsManager(
+                embeddings_manager=EmbeddingsManager(
                     batch_size=batch_size,
                     n_heads=num_heads,
                     max_sequence_length=max_decoding_length,
                     with_mask=False,
                 ),
-                hidden_dim,
-                ff_dim,
-                num_heads,
-                num_layers,
-                dropout_p
+                hidden_dim=hidden_dim,
+                ff_dim=ff_dim,
+                num_heads=num_heads,
+                num_layers=num_layers,
+                dropout_p=dropout_p,
             )
             category_map_decoder._reset_parameters()
             category_map_decoder.eval()
 
-            batch_io_parser = BatchBuilder.get_batch_io_parser_output(sentences, True, 4)
+            batch_io_parser = BatchBuilder.get_batch_io_parser_output(sentences, True, 1)
+            future_mask = BatchBuilder.construct_future_mask(1)
+            for i in range(3):
+                index = i + 1
+                category_map_decoder_output = category_map_decoder.forward(
+                    batch_io_parser,
+                    task_type,
+                    future_mask=future_mask,
+                )
 
-            for i in range(1):
-                category_map_decoder.forward(batch_io_parser, task_type)
-                # batch_io_parser_output: list[list[dict]],
-                # task_type: str,
-                # src_padding_mask: Optional[torch.BoolTensor] = None,
-                # future_mask: Optional[torch.BoolTensor] = None,
-    # self.assertEqual(output.shape, (batch_size, max_encoding_length, hidden_dim))
-    # self.assertEqual(torch.any(torch.isnan(output)), False)
+                # Teacher forcing
+                batch_io_parser = BatchBuilder.get_batch_io_parser_output(sentences, True, index + 1)
+                future_mask = BatchBuilder.construct_future_mask(index + 1)
+
+                self.assertEqual(category_map_decoder_output.shape, (batch_size, index, hidden_dim))
 
 
 if __name__ == "__main__":
