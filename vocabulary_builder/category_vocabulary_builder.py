@@ -67,9 +67,7 @@ class CategoryVocabBuilder:
             )
 
         # initialize the output token classification head vocab item
-        self.output_token_classification_head_vocab_item_to_index = {
-            CategoryVocabBuilder.get_special_vocab_item(is_category_vocab_item=False): 0,
-        }
+        self.output_token_classification_head_vocab_item_to_index = {}
         self.index_to_output_token_classification_head_vocab_item = \
             {
                 v: k

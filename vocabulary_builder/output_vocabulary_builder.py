@@ -61,14 +61,14 @@ class OutputVocabBuilder:
                 self.encode_io_parser_item_into_output_vocab_item(io_parser_output)
             )
 
-    def add_tokens(self, vocab_items: list[tuple[OutputVocabItem, OutputTokenClassificationHeadVocabItem]]) -> None:
+    def add_tokens(self, vocab_items: list[tuple[OutputTokenClassificationHeadVocabItem, OutputVocabItem]]) -> None:
         """
         Adds OutputVocabItem to the vocabulary
 
-        :param vocab_items: List of output vocab items.
+        :param vocab_items: List of tuple of output token classification head vocab items and output vocab items.
         :return: None
         """
-        for token, classification_head_item in vocab_items:
+        for classification_head_item, token in vocab_items:
             output_vocabulary = self.output_token_classification_head_vocab_item_to_output_vocabularies[classification_head_item]
             output_vocabulary_index = output_vocabulary[OutputVocabBuilder.INDEX]
             vocab_item_to_index = output_vocabulary[OutputVocabBuilder.OUTPUT_TO_INDEX]
@@ -92,7 +92,7 @@ class OutputVocabBuilder:
         """
         result = []
         vocab_items = self.encode_io_parser_item_into_output_vocab_item(io_parser_output)
-        for token, classification_head_item in vocab_items:
+        for classification_head_item, token in vocab_items:
             output_vocabulary = self.output_token_classification_head_vocab_item_to_output_vocabularies[classification_head_item]
             result.append(
                 (
@@ -125,7 +125,7 @@ class OutputVocabBuilder:
         """
         result = []
 
-        for token_id, classification_head_item_id in ids:
+        for classification_head_item_id, token_id in ids:
             vocabulary = self.index_to_output_vocabularies[classification_head_item_id]
             result.append(
                 (
@@ -152,13 +152,13 @@ class OutputVocabBuilder:
     @staticmethod
     def encode_io_parser_item_into_output_vocab_item(
             io_parser_output: list[dict],
-    ) -> list[tuple[OutputVocabItem, OutputTokenClassificationHeadVocabItem]]:
+    ) -> list[tuple[OutputTokenClassificationHeadVocabItem, OutputVocabItem]]:
         """
         Converts the list of io parser item dict into list of OutputVocabItem
         with it's OutputTokenClassificationHeadVocabItem
 
-        :param io_parser_output: Output of the io parser with or with padding and special tokens.
-        :return: list of output vocab item and output token classification head vocab item as tuple
+        :param io_parser_output: Output of the io parser with or with padding and special tokens
+        :return: list of output token classification head vocab item as tuple and output vocab item
         """
         tokens = []
         for io_parser_item in io_parser_output:
@@ -168,5 +168,5 @@ class OutputVocabBuilder:
                 category_type=category_map.get(Constants.CATEGORY_TYPE),
                 category_subtype=category_map.get(Constants.CATEGORY_SUB_TYPE),
             )
-            tokens.append((token, classification_head_item))
+            tokens.append((classification_head_item, token))
         return tokens
