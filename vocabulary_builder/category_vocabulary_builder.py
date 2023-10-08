@@ -24,6 +24,9 @@ class CategoryVocabItem:
             )
         )
 
+    def __str__(self):
+        return f"CategoryVocabItem( category_type={self.category_type}, category_subtype={self.category_subtype}, category_sub_subtype={self.category_sub_subtype} )"
+
 
 @dataclass
 class OutputTokenClassificationHeadVocabItem:
@@ -43,6 +46,9 @@ class OutputTokenClassificationHeadVocabItem:
             )
         )
 
+    def __str__(self):
+        return f"OutputTokenClassificationHeadVocabItem( category_type={self.category_type}, category_subtype={self.category_subtype} )"
+
 
 class CategoryVocabBuilder:
     """
@@ -50,14 +56,30 @@ class CategoryVocabBuilder:
     """
     def __init__(self, corpus_of_io_parser_output: Optional[list[list[dict]]]):
         self.category_vocab_item_to_index = {
-            CategoryVocabBuilder.get_special_category_vocab_item(): 0,
+            CategoryVocabBuilder.get_special_vocab_item(): 0,
         }
         self.index_to_category_vocab_item = {v: k for k, v in self.category_vocab_item_to_index.items()}
         if not corpus_of_io_parser_output:
             return
         for io_parser_output in corpus_of_io_parser_output:
             self.add_tokens(
-                self.encode_io_parser_item_into_category_vocab_item(io_parser_output)
+                self.encode_io_parser_item_into_vocab_item(io_parser_output, is_category_vocab_item=True)
+            )
+
+        # initialize the output token classification head vocab item
+        self.output_token_classification_head_vocab_item_to_index = {
+            CategoryVocabBuilder.get_special_vocab_item(is_category_vocab_item=False): 0,
+        }
+        self.index_to_output_token_classification_head_vocab_item = \
+            {
+                v: k
+                for k, v in self.output_token_classification_head_vocab_item_to_index.items()
+            }
+        if not corpus_of_io_parser_output:
+            return
+        for io_parser_output in corpus_of_io_parser_output:
+            self.add_output_token_classification_head_vocab_item(
+                self.encode_io_parser_item_into_vocab_item(io_parser_output, is_category_vocab_item=False)
             )
 
     def add_tokens(self, category_vocab_items: list[CategoryVocabItem]) -> None:
@@ -80,7 +102,7 @@ class CategoryVocabBuilder:
         :param io_parser_output: Output of the io parser with or with padding and special tokens.
         :return: list of integer tokens.
         """
-        vocab_items = self.encode_io_parser_item_into_category_vocab_item(io_parser_output)
+        vocab_items = self.encode_io_parser_item_into_vocab_item(io_parser_output, is_category_vocab_item=True)
         return [self.category_vocab_item_to_index[vocab_item] for vocab_item in vocab_items]
 
     def batch_encoder(
@@ -121,25 +143,35 @@ class CategoryVocabBuilder:
         return batch_category_map
 
     @staticmethod
-    def encode_io_parser_item_into_category_vocab_item(
+    def encode_io_parser_item_into_vocab_item(
             io_parser_output: list[dict],
-    ) -> list[CategoryVocabItem]:
+            is_category_vocab_item=True,
+    ) -> list[CategoryVocabItem] | list[OutputTokenClassificationHeadVocabItem]:
         """
         Converts the list of io parser item dict into list of category vocab item
 
+        :param is_category_vocab_item:
         :param io_parser_output: Output of the io parser with or with padding and special tokens.
-        :return: category vocab items
+        :return: category vocab items or output token classification head vocab items
         """
         tokens = []
         for io_parser_item in io_parser_output:
             category_map: dict = io_parser_item.get(Constants.CATEGORY)
-            tokens.append(
-                CategoryVocabItem(
-                    category_type=category_map.get(Constants.CATEGORY_TYPE),
-                    category_subtype=category_map.get(Constants.CATEGORY_SUB_TYPE),
-                    category_sub_subtype=category_map.get(Constants.CATEGORY_SUB_SUB_TYPE),
-                ),
-            )
+            if is_category_vocab_item:
+                tokens.append(
+                    CategoryVocabItem(
+                        category_type=category_map.get(Constants.CATEGORY_TYPE),
+                        category_subtype=category_map.get(Constants.CATEGORY_SUB_TYPE),
+                        category_sub_subtype=category_map.get(Constants.CATEGORY_SUB_SUB_TYPE),
+                    ),
+                )
+            else:
+                tokens.append(
+                    OutputTokenClassificationHeadVocabItem(
+                        category_type=category_map.get(Constants.CATEGORY_TYPE),
+                        category_subtype=category_map.get(Constants.CATEGORY_SUB_TYPE),
+                    ),
+                )
         return tokens
 
     @staticmethod
@@ -164,14 +196,56 @@ class CategoryVocabBuilder:
         return category_maps
 
     @staticmethod
-    def get_special_category_vocab_item():
+    def get_special_vocab_item(is_category_vocab_item=True):
         """
         Get special tokens vocab item
 
-        :return: A category vocab item
+        :param is_category_vocab_item: is Ture then category vocab item otherwise output token classification head vocab item
+        :return: A category vocab item or output token classification head vocab item
         """
         return CategoryVocabItem(
             CategoryType.SPECIAL.value,
             CategorySubType.WORD.value,
             CategorySubSubType.NONE.value,
+        ) if is_category_vocab_item else OutputTokenClassificationHeadVocabItem(
+            CategoryType.SPECIAL.value,
+            CategorySubType.WORD.value,
         )
+
+    # ~~~~~~~~~~~~~~~~~~~~~~ output token classification head vocab item ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    def add_output_token_classification_head_vocab_item(
+            self,
+            output_token_classification_head_vocab_items: list[OutputTokenClassificationHeadVocabItem],
+    ) -> None:
+        """
+        Adds CategoryVocabItem to the vocabulary
+
+        :param output_token_classification_head_vocab_items: List of output token classification head vocab items.
+        :return: None
+        """
+        for token in output_token_classification_head_vocab_items:
+            if token not in self.output_token_classification_head_vocab_item_to_index:
+                i = len(self.output_token_classification_head_vocab_item_to_index.items())
+                self.output_token_classification_head_vocab_item_to_index[token] = i
+                self.index_to_output_token_classification_head_vocab_item[i] = token
+
+    def encoder_output_token_classification_head_vocab_items(self, io_parser_output: list[dict]) -> list[int]:
+        """
+        Tokenize io parser output -> output token classification head vocab items -> integer token
+
+        :param io_parser_output: Output of the io parser with or with padding and special tokens.
+        :return: list of integer tokens.
+        """
+        vocab_items = self.encode_io_parser_item_into_vocab_item(io_parser_output, is_category_vocab_item=False)
+        return [self.output_token_classification_head_vocab_item_to_index[vocab_item] for vocab_item in vocab_items]
+
+    def decode_output_token_classification_head_vocab_items(self, tokens: list[int]) -> list[OutputTokenClassificationHeadVocabItem]:
+        """Decode tokens into io parser output. integer token -> output token classification head vocab items
+
+        :param tokens: list of integer tokens.
+        :return: output token classification head vocab item list
+        """
+        vocab_items = [self.index_to_output_token_classification_head_vocab_item[token] for token in tokens]
+        return vocab_items
+
+
