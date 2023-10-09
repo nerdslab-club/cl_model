@@ -12,7 +12,6 @@ from cl_data.src.constants import TaskTypes
 from cl_pretrainer.batch_builder import BatchBuilder
 from embeddings_manager.embeddings_manager import EmbeddingsManager
 from multi_head_attention import MultiHeadAttention
-# from transformer_utils import construct_future_mask
 
 
 class TransformerDecoder(nn.Module):
@@ -90,6 +89,11 @@ class TransformerDecoder(nn.Module):
 
         # (batch_size, sequence_length, vocab_size)
         logits = self.output_layer(x)
+
+        # Not using softmax need to figure out why,
+        # Training result degrade in quality
+        # softmax_output = torch.softmax(logits, dim=1)
+
         return logits
 
     def save_model(self, path: str):

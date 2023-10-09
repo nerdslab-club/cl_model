@@ -39,7 +39,7 @@ class CategoryMapClassificationHead(nn.Module):
         # Linear layer, output shape(batch_size, sequence_length, category_vocab_size)
         logits = self.category_map_classification_head_output_layer(e_one)
 
-        # Softmax layer, output shape(batch_size, sequence_length)
+        # Argmax, output shape(batch_size, sequence_length)
         category_probability = logits.argmax(dim=-1)
         return category_probability
 
