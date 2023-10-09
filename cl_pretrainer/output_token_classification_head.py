@@ -131,11 +131,10 @@ class TestOutputTokenClassificationHead(unittest.TestCase):
                 ff_dim=ff_dim,
                 dropout_p=dropout_p,
                 vocab_size=vocab_size,
-                output_token_classification_vocab_item_index=0,
-                output_token_classification_vocab_item=OutputTokenClassificationHeadVocabItem(
-                    category_type=CategoryType.WORD.value,
-                    category_subtype=CategorySubType.DEFAULT.value,
-                )
+                output_token_classification_vocab_item_index=output_vocabulary[OutputVocabBuilder.INDEX],
+                output_token_classification_vocab_item=output_vocabulary[
+                    OutputVocabBuilder.OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM
+                ]
             )
             for i in range(3):
                 index = i + 1

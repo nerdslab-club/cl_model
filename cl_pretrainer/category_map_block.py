@@ -75,7 +75,10 @@ class CategoryMapBlock(nn.Module):
             end_row, end_col = param_info["end"]
             encoder_hidden_state = param_info["encoder_hidden_state"]
             token_tensor = param_info["token_tensors"]
-            cross_attention_output = self.category_map_block_cross_mha.forward(token_tensor, encoder_hidden_state)
+            cross_attention_output = self.category_map_block_cross_mha.forward(
+                token_tensor.unsqueeze(0),
+                encoder_hidden_state,
+            )
             x[start_row, start_col:end_col, :] = cross_attention_output
         return x
 
