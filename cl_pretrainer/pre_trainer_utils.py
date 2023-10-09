@@ -35,7 +35,6 @@ class PreTrainerUtils:
                 if batch_function_param_mask[i][j]:
                     if current_tensor is None:
                         current_map["start"] = (i, j)
-                        print(f"error: {i}, {current_encoder_hidden_state_index}")
                         current_map["encoder_hidden_state"] = batch_encoder_hidden_states[i][current_encoder_hidden_state_index]
                         current_tensor = x[i][j].unsqueeze(0)
                     else:

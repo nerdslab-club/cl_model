@@ -62,17 +62,18 @@ class TestCategoryMapClassificationHead(unittest.TestCase):
         Test three forward pass of category map decoder and check if output tensor shape is as expected.
         :return: None
         """
-        batch_size = 2
+        batch_size = 3
         num_heads = 8
         max_decoding_length = 10
         hidden_dim = 768
         ff_dim = 2048
-        num_layers = 2
+        num_layers = 1
         dropout_p = 0.1
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
         sentences = [
             "Hello my name is Joaa and my parents gave the name Joaa.",
-            "Hello my name is Prattoy and my grandma gave the name Prattoy."
+            "Hello my name is Prattoy and my grandma gave the name Prattoy.",
+            "##addition(3,2)",
         ]
         with torch.no_grad():
             category_map_decoder = CategoryMapDecoder(
@@ -107,7 +108,7 @@ class TestCategoryMapClassificationHead(unittest.TestCase):
                 dropout_p=dropout_p,
                 vocab_size=vocab_size,
             )
-            for i in range(3):
+            for i in range(5):
                 index = i + 1
                 category_map_decoder_output = category_map_decoder.forward(
                     batch_io_parser,
@@ -118,7 +119,7 @@ class TestCategoryMapClassificationHead(unittest.TestCase):
                 category_map_classification_head_output = category_map_classification_head.forward(
                     category_map_decoder_output,
                 )
-
+                print(f"category map decoder input: {batch_io_parser}")
                 print(f"Category map classification head output shape: {category_map_classification_head_output.shape}")
                 print(f"Predicted token values:"
                       f" {category_vocab_builder.batch_decode(category_map_classification_head_output.tolist())}")
