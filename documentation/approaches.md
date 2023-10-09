@@ -39,4 +39,9 @@ in such a way that there is a relationship between them.
 
 #### <span style="color: red;">Approach Two</span>
 - Modify Multi head attention to accommodate the changes.
+
+### Optimization problem
+
+1. Cross attention computation for function param is highly unoptimized
+2. Output token classification head routing is highly unoptimized
  

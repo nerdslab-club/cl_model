@@ -50,7 +50,7 @@ class OutputTokenClassificationHead(nn.Module):
         # Linear layer, output shape(batch_size, sequence_length, output_vocab_size)
         logits = self.output_token_classification_head_output_layer(e_two)
 
-        # Softmax layer, output shape(batch_size, sequence_length)
+        # Argmax, output shape(batch_size, sequence_length)
         output_probability = logits.argmax(dim=-1)
         return output_probability
 
@@ -168,15 +168,6 @@ class TestOutputTokenClassificationHead(unittest.TestCase):
                 for item_list in output_token_classification_head_output.tolist():
                     for item in item_list:
                         self.assertTrue(0 <= item < vocab_size)
-
-    def test_multiple_output_token_classification_head(self):
-        """
-        Test three forward pass of output token decoder with multiple classification head
-        and check if output tensor shape is as expected.
-        :return: No
-        """
-        # TODO need to implement this after completing category router class
-        pass
 
 
 if __name__ == "__main__":

@@ -237,6 +237,21 @@ class CategoryVocabBuilder:
         vocab_items = self.encode_io_parser_item_into_vocab_item(io_parser_output, is_category_vocab_item=False)
         return [self.output_token_classification_head_vocab_item_to_index[vocab_item] for vocab_item in vocab_items]
 
+    def batch_encoder_output_token_classification_head_vocab_items(
+            self, batch_io_parser_output: list[list[dict]]
+    ) -> list[list[int]]:
+        """
+        Batch tokenize io parser output -> batch output token classification head vocab items -> batch integer token
+
+        :param batch_io_parser_output: batch of io_parser_output
+        :return: Batch of list of integer tokens.
+        """
+        batch_tokens = [
+            self.encoder_output_token_classification_head_vocab_items(io_parser_output)
+            for io_parser_output in batch_io_parser_output
+        ]
+        return batch_tokens
+
     def decode_output_token_classification_head_vocab_items(self, tokens: list[int]) -> list[OutputTokenClassificationHeadVocabItem]:
         """Decode tokens into io parser output. integer token -> output token classification head vocab items
 
@@ -246,4 +261,15 @@ class CategoryVocabBuilder:
         vocab_items = [self.index_to_output_token_classification_head_vocab_item[token] for token in tokens]
         return vocab_items
 
+    def batch_decode_output_token_classification_head_vocab_items(self, list_of_tokens: list[list[int]]) -> list[list[OutputTokenClassificationHeadVocabItem]]:
+        """Decode list of tokens into batch category map.
+        batch integer token -> batch output token classification head vocab items
 
+        :param list_of_tokens: batch of integer tensor.
+        :return: batch category map.
+        """
+        batch_category_map = []
+        for tokens in list_of_tokens:
+            vocab_items = self.decode_output_token_classification_head_vocab_items(tokens)
+            batch_category_map.append(vocab_items)
+        return batch_category_map
