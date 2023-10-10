@@ -17,15 +17,14 @@ class CategoryRouter(nn.Module):
 
     def __init__(
             self,
-            output_vocab_builder: OutputVocabBuilder,
+            index_to_output_vocabularies: dict[int, dict],
             hidden_dim: int,
             ff_dim: int,
             dropout_p: float,
 
     ):
         super().__init__()
-        self.output_vocab_builder = output_vocab_builder
-        self.index_to_route = self.output_vocab_builder.index_to_output_vocabularies
+        self.index_to_route = index_to_output_vocabularies
 
         for index, route in self.index_to_route.items():
             route_vocabulary_index_to_vocab = route[OutputVocabBuilder.INDEX_TO_OUTPUT]
@@ -141,7 +140,7 @@ class TestCategoryRouter(unittest.TestCase):
 
             # Create category router instance
             category_router = CategoryRouter(
-                output_vocab_builder=output_vocab_builder,
+                index_to_output_vocabularies=output_vocabularies,
                 hidden_dim=hidden_dim,
                 ff_dim=ff_dim,
                 dropout_p=dropout_p,
