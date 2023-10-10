@@ -1,6 +1,8 @@
 import torch
 from torch import Tensor
 
+from cl_data.src.constants import Constants
+
 
 class PreTrainerUtils:
     @staticmethod
@@ -56,6 +58,26 @@ class PreTrainerUtils:
                 current_map = {}
 
         return result
+
+    @staticmethod
+    def convert_category_map_into_io_parser_output_without_token(
+            batch_category_map: list[list[dict[str, str]]],
+    ) -> list[list[dict[str, any]]]:
+        """
+        Convert batch of category map into batch of io parser output without the token.
+        :param batch_category_map: batch of category map
+        :return: batch io parser output without the token
+        """
+        batch_io_parser_output_without_token = []
+        for category_maps in batch_category_map:
+            sequence_io_parser_output_without_token = []
+            for category_map in category_maps:
+                io_parser_output_without_token = {
+                    Constants.CATEGORY: category_map,
+                }
+                sequence_io_parser_output_without_token.append(io_parser_output_without_token)
+            batch_io_parser_output_without_token.append(sequence_io_parser_output_without_token)
+        return batch_io_parser_output_without_token
 
 
 if __name__ == "__main__":
