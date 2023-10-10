@@ -69,6 +69,9 @@ class OutputVocabBuilder:
         :return: None
         """
         for classification_head_item, token in vocab_items:
+            # TODO as we are converting list to string in the response parser this need to be reverted
+            if isinstance(token, list):
+                token = str(token)
             output_vocabulary = self.output_token_classification_head_vocab_item_to_output_vocabularies[classification_head_item]
             output_vocabulary_index = output_vocabulary[OutputVocabBuilder.INDEX]
             vocab_item_to_index = output_vocabulary[OutputVocabBuilder.OUTPUT_TO_INDEX]

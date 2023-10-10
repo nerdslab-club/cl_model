@@ -59,6 +59,11 @@ class BatchBuilder:
         )
 
     @staticmethod
+    def construct_batches_for_cl_pre_trainer():
+        # TODO need to implement this function
+        pass
+
+    @staticmethod
     def construct_batches_for_transformer(
             corpus: List[Dict[str, str]],
             batch_size: int,
