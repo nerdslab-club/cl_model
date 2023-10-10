@@ -88,7 +88,7 @@ class TestTransformerInference(unittest.TestCase):
     np.random.seed(seed)
     PATH = "./saved_models/model.pth"
 
-    def test_model_load(self):
+    def test_model_load_and_inference(self):
         device = (
             torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         )
