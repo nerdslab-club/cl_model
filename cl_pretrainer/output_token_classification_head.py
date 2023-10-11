@@ -52,7 +52,7 @@ class OutputTokenClassificationHead(nn.Module):
 
         # Argmax, output shape(batch_size, sequence_length)
         output_probability = logits.argmax(dim=-1)
-        return output_probability
+        return output_probability, logits
 
     def save_model(self, path: str):
         torch.save(self.state_dict(), path)

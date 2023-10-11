@@ -111,6 +111,7 @@ class TestClPreTrainer(unittest.TestCase):
     def test_cl_pre_trainer(self):
         """
         Test 10 complete decoding cycle for both category and output probability
+        This is inference example that's why using the for loop over the sequence
         :return: No
         """
         batch_size = 3

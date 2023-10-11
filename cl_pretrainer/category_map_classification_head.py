@@ -41,7 +41,7 @@ class CategoryMapClassificationHead(nn.Module):
 
         # Argmax, output shape(batch_size, sequence_length)
         category_probability = logits.argmax(dim=-1)
-        return category_probability
+        return category_probability, logits
 
     def save_model(self, path: str):
         torch.save(self.state_dict(), path)

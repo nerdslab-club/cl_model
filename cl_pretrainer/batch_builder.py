@@ -99,9 +99,11 @@ class BatchBuilder:
         The first represents the batches, This is batch io parser output.
         Second one represents the attention masks. This is bool Tensor.
         """
-        next_token_task_corpus = NextTokenSamplesGenerator.create_next_token_batches(
-            corpus,
-        )
+        next_token_task_corpus = [
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: src, BatchBuilder.TARGET_LANGUAGE_KEY: tgt} for src, tgt in
+            zip(corpus, corpus)
+        ]
+
         batches: Dict[str, List] = {
             BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY: [],
             BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY: [],
@@ -247,6 +249,15 @@ class TestUtils(unittest.TestCase):
     def test_get_sentence_io_parser_output(self):
         # Full length with padding, BOS and EOS
         sentence = "one two three four five six seven eight"
+
+        # need to remove <BOS> from target, We will use this to find the loss by comparing to output
+        # target = "<BOS> one two three four five six seven eight <EOS>"
+
+        # input = "<BOS> one two three four five six seven eight <EOS>"
+
+        # need to remove garbage from output, this is right shifted result of the input
+        # output = "one two three four five six seven eight <EOS> garbage"
+
         io_parser_output = BatchBuilder.get_sentence_io_parser_output(
             sentence,
             add_bos_and_eos=True,
