@@ -87,6 +87,7 @@ class CategoryMapDecoder(nn.Module):
                         x,
                         cross_attention_mask,
                         batch_of_encoder_hidden_states,
+                        shift_right=True,
                     ),
                 )
 

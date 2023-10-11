@@ -10,6 +10,7 @@ class PreTrainerUtils:
             x: Tensor,
             batch_function_param_mask: Tensor,
             batch_encoder_hidden_states: list[list[Tensor]],
+            shift_right=False,
     ) -> list[dict]:
         """
         convert batch function param mask and batch encoder hidden states into funtion param token infos. ie
@@ -19,6 +20,7 @@ class PreTrainerUtils:
             "encoder_hidden_state": Tensor, # Embeddings of the function in question found using initial function encoder
             "token": Tensor, # Embedding of category map token of function params.
         };
+        :param shift_right:
         :param x: Tensor containing the output of the previous decoder block. Shape: (N, S, E)
         :param batch_function_param_mask: ie. [[False, True, Ture, False], [False, True, Ture, False]]
         :param batch_encoder_hidden_states: list[Tensor, Tensor, ...]
@@ -35,12 +37,18 @@ class PreTrainerUtils:
         for i in range(batch_size):
             for j in range(sequence_length):
                 if batch_function_param_mask[i][j]:
+                    if j == 0:
+                        raise Exception("create_function_param_token_infos, First token can't be a param token...")
+
                     if current_tensor is None:
                         current_map["start"] = (i, j)
                         current_map["encoder_hidden_state"] = batch_encoder_hidden_states[i][current_encoder_hidden_state_index]
-                        current_tensor = x[i][j].unsqueeze(0)
+                        current_tensor = x[i][j-1].unsqueeze(0) if shift_right else x[i][j].unsqueeze(0)
                     else:
-                        current_tensor = torch.cat((current_tensor, x[i][j].unsqueeze(0)), dim=0)
+                        current_tensor = torch.cat(
+                            (current_tensor, x[i][j-1].unsqueeze(0) if shift_right else x[i][j].unsqueeze(0)),
+                            dim=0,
+                        )
                 elif current_tensor is not None:
                     current_encoder_hidden_state_index += 1
                     current_map["end"] = (i, j)
@@ -88,7 +96,7 @@ if __name__ == "__main__":
     x = torch.randn(mask_tensor.size(0), mask_tensor.size(1), embedding_length, dtype=torch.float32)
 
     # Create a batch of encoder hidden states
-    batch_encoder_hidden_states = [[torch.randn(10, embedding_length)], [torch.randn(10, embedding_length)]]
+    batch_encoder_hidden_states = [[torch.randn(10, embedding_length)], [torch.randn(10, embedding_length), torch.randn(10, embedding_length)]]
 
-    output = PreTrainerUtils.create_function_param_token_infos(x, mask_tensor, batch_encoder_hidden_states)
+    output = PreTrainerUtils.create_function_param_token_infos(x, mask_tensor, batch_encoder_hidden_states, shift_right=True)
     print(output)

@@ -252,7 +252,7 @@ class TestTransformerDecoder(unittest.TestCase):
                 decoder_input = BatchBuilder.get_batch_io_parser_output(sentences, True, index + 1)
                 future_mask = BatchBuilder.construct_future_mask(index + 1)
 
-                self.assertEqual(decoder_output.shape, (batch_size, i + 1, vocab_size))
+                self.assertEqual(decoder_output.shape, (batch_size, index, vocab_size))
                 # softmax entropy should not be 0
                 self.assertEqual(torch.any(decoder_output == 1), False)
                 """
