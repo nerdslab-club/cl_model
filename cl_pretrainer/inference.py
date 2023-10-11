@@ -41,7 +41,7 @@ def inference(
 
     for i, (src_batch, src_mask, tgt_batch, tgt_mask) in enumerate(
             zip(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY],
-                masks[BatchBuilder.ENCODER_PADDING_MASK_KEY],
+                masks[BatchBuilder.PADDING_MASK_KEY],
                 batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY],
                 masks[BatchBuilder.FUTURE_MASK_KEY])
     ):
@@ -94,26 +94,27 @@ class TestTransformerInference(unittest.TestCase):
         )
 
         batch_size = 1
+        # Minimum encoding length is 16
         max_encoding_length = 20
-        max_decoding_length = 10
+        max_decoding_length = 8
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
         corpus_source = [
-            "These are the tokens that will end up in our vocabulary",
-            "The sun set behind the mountains, painting the sky in hues of orange and pink",
-            "curious cat chased a fluttering butterfly through the lush garden",
-            "She sipped her steaming cup of tea as she gazed out the window at the pouring rain",
-            "The laughter of children echoed through the park on a warm summer afternoon",
-            "With a flick of his wrist, the magician made the playing cards disappear into thin air",
-        ]
-        corpus_target = [
             "The sun is shining brightly in the clear blue sky",
             "She studied hard for her exams and earned top grades",
             "The cat chased the mouse around the house",
             "He loves to play the guitar and sing songs",
             "They enjoyed a delicious meal at their favorite restaurant",
             "The book was so captivating that she couldn't put it down",
+        ]
+        corpus_target = [
+            "He reads books daily",
+            "I like chocolate ice cream",
+            "Dogs bark loudly at night",
+            "She dances gracefully on stage",
+            "Flowers bloom in springtime",
+            "Raindrops fall gently from clouds"
         ]
         combined_list = corpus_source + corpus_target
 

@@ -141,20 +141,13 @@ class TestTransformerTraining(unittest.TestCase):
 
         batch_size = 3
         n_epochs = 35
+        # Minimum encoding length is 16
         max_encoding_length = 20
-        max_decoding_length = 10
+        max_decoding_length = 8
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
         corpus_source = [
-            "These are the tokens that will end up in our vocabulary",
-            "The sun set behind the mountains, painting the sky in hues of orange and pink",
-            "curious cat chased a fluttering butterfly through the lush garden",
-            "She sipped her steaming cup of tea as she gazed out the window at the pouring rain",
-            "The laughter of children echoed through the park on a warm summer afternoon",
-            "With a flick of his wrist, the magician made the playing cards disappear into thin air",
-        ]
-        corpus_target = [
             "The sun is shining brightly in the clear blue sky",
             "She studied hard for her exams and earned top grades",
             "The cat chased the mouse around the house",
@@ -162,10 +155,18 @@ class TestTransformerTraining(unittest.TestCase):
             "They enjoyed a delicious meal at their favorite restaurant",
             "The book was so captivating that she couldn't put it down",
         ]
+        corpus_target = [
+            "He reads books daily",
+            "I like chocolate ice cream",
+            "Dogs bark loudly at night",
+            "She dances gracefully on stage",
+            "Flowers bloom in springtime",
+            "Raindrops fall gently from clouds"
+        ]
         combined_list = corpus_source + corpus_target
 
         # Creating the vocabulary
-        vocab = SimpleVocabBuilder(BatchBuilder.get_batch_io_parser_output(combined_list, True, None))
+        vocab = SimpleVocabBuilder(BatchBuilder.get_batch_io_parser_output(combined_list, True, 20))
         vocab_size = len(list(vocab.vocab_item_to_index.keys()))
         valid_tokens = list(vocab.vocab_item_to_index.keys())[3:]
         print(f"Vocabulary size: {vocab_size}")
@@ -248,26 +249,27 @@ class TestTransformerTraining(unittest.TestCase):
         )
         batch_size = 3
         n_epochs = 1
+        # Minimum encoding length is 16
         max_encoding_length = 20
-        max_decoding_length = 10
+        max_decoding_length = 8
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
         corpus_source = [
-            "These are the tokens that will end up in our vocabulary",
-            "The sun set behind the mountains, painting the sky in hues of orange and pink",
-            "curious cat chased a fluttering butterfly through the lush garden",
-            "She sipped her steaming cup of tea as she gazed out the window at the pouring rain",
-            "The laughter of children echoed through the park on a warm summer afternoon",
-            "With a flick of his wrist, the magician made the playing cards disappear into thin air",
-        ]
-        corpus_target = [
             "The sun is shining brightly in the clear blue sky",
             "She studied hard for her exams and earned top grades",
             "The cat chased the mouse around the house",
             "He loves to play the guitar and sing songs",
             "They enjoyed a delicious meal at their favorite restaurant",
             "The book was so captivating that she couldn't put it down",
+        ]
+        corpus_target = [
+            "He reads books daily",
+            "I like chocolate ice cream",
+            "Dogs bark loudly at night",
+            "She dances gracefully on stage",
+            "Flowers bloom in springtime",
+            "Raindrops fall gently from clouds"
         ]
         combined_list = corpus_source + corpus_target
 
