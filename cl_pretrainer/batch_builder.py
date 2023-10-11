@@ -245,6 +245,7 @@ class BatchBuilder:
 
 class TestUtils(unittest.TestCase):
     def test_get_sentence_io_parser_output(self):
+        # Full length with padding, BOS and EOS
         sentence = "one two three four five six seven eight"
         io_parser_output = BatchBuilder.get_sentence_io_parser_output(
             sentence,
@@ -261,10 +262,72 @@ class TestUtils(unittest.TestCase):
             {'token': 'six', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 6},
             {'token': 'seven', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 7},
             {'token': 'eight', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 8},
-            {'token': '<EOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 9},
+            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 9},
             {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 10},
-            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 11},
+            {'token': '<EOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 11},
         ]
+        self.assertEqual(expected_result, io_parser_output)
+        # Truncated length with Padding, BOS and EOS
+        io_parser_output = BatchBuilder.get_sentence_io_parser_output(
+            sentence,
+            add_bos_and_eos=True,
+            max_sequence_length=6,
+        )
+        expected_result = [
+            {'token': '<BOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 0},
+            {'token': 'one', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 1},
+            {'token': 'two', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 2},
+            {'token': 'three', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 3},
+            {'token': 'four', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 4},
+            {'token': '<EOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 5},
+        ]
+        self.assertEqual(expected_result, io_parser_output)
+        # Full length without Padding, BOS and EOS
+        io_parser_output = BatchBuilder.get_sentence_io_parser_output(
+            sentence,
+            add_bos_and_eos=False,
+            max_sequence_length=None,
+        )
+        expected_result = [
+            {'token': 'one', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 0},
+            {'token': 'two', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 1},
+            {'token': 'three', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 2},
+            {'token': 'four', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 3},
+            {'token': 'five', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 4},
+            {'token': 'six', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 5},
+            {'token': 'seven', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 6},
+            {'token': 'eight', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 7},
+        ]
+        self.assertEqual(expected_result, io_parser_output)
+        # Truncated length without Padding, BOS and EOS
+        io_parser_output = BatchBuilder.get_sentence_io_parser_output(
+            sentence,
+            add_bos_and_eos=False,
+            max_sequence_length=3,
+        )
+        expected_result = [
+            {'token': 'one', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 0},
+            {'token': 'two', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 1},
+            {'token': 'three', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 2},
+        ]
+        self.assertEqual(expected_result, io_parser_output)
+        # Full length with Padding without BOS and EOS
+        io_parser_output = BatchBuilder.get_sentence_io_parser_output(
+            sentence,
+            add_bos_and_eos=False,
+            max_sequence_length=10,
+        )
+        expected_result = [
+            {'token': 'one', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 0},
+            {'token': 'two', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 1},
+            {'token': 'three', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 2},
+            {'token': 'four', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 3},
+            {'token': 'five', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 4},
+            {'token': 'six', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 5},
+            {'token': 'seven', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 6},
+            {'token': 'eight', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 7},
+            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 8},
+            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 9}]
         self.assertEqual(expected_result, io_parser_output)
 
     def test_construct_future_mask(self):
