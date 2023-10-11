@@ -1,6 +1,7 @@
 import torch
 from torch import Tensor
 
+from cl_data.function_representation.src.math_functions import MathFunctions
 from embeddings_manager.initial_function_encoder import InitialFunctionEncoder
 from embeddings_manager.alibibi_positional_encoder import ALiBiBiEncoder
 from embeddings_manager.category_and_task_encoder import CategoryAndTaskEncoder
@@ -28,7 +29,7 @@ class EmbeddingsManager:
     TASK_TYPE = "TT"
 
     def __init__(
-        self, batch_size: int, n_heads: int, max_sequence_length: int, with_mask: bool
+            self, batch_size: int, n_heads: int, max_sequence_length: int, with_mask: bool
     ):
         self.initial_word_encoder = InitialWordEncoder()
         self.initial_function_encoder = InitialFunctionEncoder()
@@ -40,7 +41,7 @@ class EmbeddingsManager:
         self.with_mask = with_mask
 
     def get_batch_combined_embeddings(
-        self, batch_io_parser_output: list[list[dict]], task_type: str
+            self, batch_io_parser_output: list[list[dict]], task_type: str
     ) -> Tensor:
         """Batch of the io parser output, it converts every io parser item into it's combined embedding
 
@@ -62,7 +63,7 @@ class EmbeddingsManager:
         return batch_item_tensors
 
     def get_sentence_combined_embeddings(
-        self, io_parser_output: list[dict], task_type: str
+            self, io_parser_output: list[dict], task_type: str
     ) -> Tensor:
         """Given the io parser output it convert every io parser item into it's combined embedding
 
@@ -114,7 +115,7 @@ class EmbeddingsManager:
         return item_tensors
 
     def get_batch_combined_embeddings_with_mask(
-        self, batch_io_parser_output: list[list[dict]], task_type: str
+            self, batch_io_parser_output: list[list[dict]], task_type: str
     ) -> tuple[Tensor, Tensor, list[list[Tensor]]]:
         """Batch of the io parser output, it converts every io parser item into
         it's combined embedding and cross attention mask and batch of encoder hidden state
@@ -216,7 +217,7 @@ class EmbeddingsManager:
         return item_tensors, mask_tensors, list_of_encoder_hidden_states
 
     def get_batch_embeddings_maps(
-        self, batch_io_parser_output: list[list[dict]], task_type: str
+            self, batch_io_parser_output: list[list[dict]], task_type: str
     ) -> list[list[dict]]:
         batch_embedding_maps = []
         for io_parser_output in batch_io_parser_output:
@@ -226,7 +227,7 @@ class EmbeddingsManager:
         return batch_embedding_maps
 
     def get_sentence_embeddings_maps(
-        self, io_parser_output: list[dict], task_type: str
+            self, io_parser_output: list[dict], task_type: str
     ) -> list[dict]:
         # TODO instead of creating a list can't we modify the given one ?
         embedding_maps = []
@@ -241,11 +242,11 @@ class EmbeddingsManager:
         return embedding_maps
 
     def get_embeddings_map(
-        self,
-        token: any,
-        category_map: dict,
-        position: int,
-        task_type: str,
+            self,
+            token: any,
+            category_map: dict,
+            position: int,
+            task_type: str,
     ) -> dict:
         # {
         # 'token': <function MathFunctions.addition at 0x11645a8c0>,
@@ -299,29 +300,29 @@ class EmbeddingsManager:
         return self.initial_word_encoder.get_sentence_embedding(str(token), True)
 
     def get_category_and_task_embedding(
-        self,
-        category_map: dict,
-        task_type: str,
+            self,
+            category_map: dict,
+            task_type: str,
     ) -> Tensor:
         return self.category_and_task_encoder.categorical_encoding(
             category_map, task_type
         )
 
     def get_combined_embedding(
-        self,
-        token_embedding: Tensor,
-        categorical_embedding: Tensor,
+            self,
+            token_embedding: Tensor,
+            categorical_embedding: Tensor,
     ) -> Tensor:
         return self.category_and_task_encoder.get_combined_embedding(
             token_embedding, categorical_embedding
         )
 
     def get_alibibi_embedding(
-        self,
-        batch_size: int,
-        n_heads: int,
-        max_sequence_length: int,
-        with_mask: bool,
+            self,
+            batch_size: int,
+            n_heads: int,
+            max_sequence_length: int,
+            with_mask: bool,
     ) -> Tensor:
         return self.aLiBiBi_encoder.get_alibi_biases(
             batch_size=batch_size,
@@ -345,16 +346,16 @@ class EmbeddingsManager:
 
     @staticmethod
     def create_embeddings_map(
-        token_embedding: Tensor,
-        alibibi_embedding: Tensor,
-        combined_embedding: Tensor,
-        category_embedding: Tensor,
-        frequency_embedding: Tensor,
-        token: any,
-        category_map: dict,
-        position: int,
-        task_type: str,
-        function_token_embeddings=None | Tensor,
+            token_embedding: Tensor,
+            alibibi_embedding: Tensor,
+            combined_embedding: Tensor,
+            category_embedding: Tensor,
+            frequency_embedding: Tensor,
+            token: any,
+            category_map: dict,
+            position: int,
+            task_type: str,
+            function_token_embeddings=None | Tensor,
     ) -> dict:
         return {
             EmbeddingsManager.TOKEN_EMBEDDING: token_embedding,
@@ -378,12 +379,12 @@ class EmbeddingsManager:
         :return: Ture if function param otherwise false
         """
         if (
-            category_sub_subtype == CategorySubSubType.PARAM_ONE.value
-            or category_sub_subtype == CategorySubSubType.PARAM_TWO.value
-            or category_sub_subtype == CategorySubSubType.PARAM_THREE.value
-            or category_sub_subtype == CategorySubSubType.PARAM_FOUR.value
-            or category_sub_subtype == CategorySubSubType.PARAM_FIVE.value
-            or category_sub_subtype == CategorySubSubType.PARAM_LAST.value
+                category_sub_subtype == CategorySubSubType.PARAM_ONE.value
+                or category_sub_subtype == CategorySubSubType.PARAM_TWO.value
+                or category_sub_subtype == CategorySubSubType.PARAM_THREE.value
+                or category_sub_subtype == CategorySubSubType.PARAM_FOUR.value
+                or category_sub_subtype == CategorySubSubType.PARAM_FIVE.value
+                or category_sub_subtype == CategorySubSubType.PARAM_LAST.value
         ):
             return True
         return False
@@ -396,37 +397,59 @@ class EmbeddingsManager:
 if __name__ == "__main__":
     item = [
         {
-            "token": 126,
+            "token": "<BOS>",
+            "category": {
+                "type": "special",
+                "subType": "word",
+                "subSubType": "none"
+            },
+            "position": 0
+        },
+        {
+            "token": MathFunctions.addition,
+            "category": {
+                "type": "function",
+                "subType": "integer",
+                "subSubType": "execute"
+            },
+            "position": 1
+        },
+        {
+            "token": 578,
             "category": {
                 "type": "integer",
                 "subType": "default",
-                "subSubType": "param_one",
+                "subSubType": "param_one"
             },
-            "position": 0,
+            "position": 2
         },
         {
-            "token": "plus",
-            "category": {
-                "type": "word",
-                "subType": "default",
-                "subSubType": "param_two",
-            },
-            "position": 1,
-        },
-        {
-            "token": 840,
+            "token": 119,
             "category": {
                 "type": "integer",
                 "subType": "default",
-                "subSubType": "param_last",
+                "subSubType": "param_last"
             },
-            "position": 2,
+            "position": 3
         },
         {
-            "token": "equals?",
-            "category": {"type": "word", "subType": "default", "subSubType": "none"},
-            "position": 3,
+            "token": "<PAD>",
+            "category": {
+                "type": "special",
+                "subType": "word",
+                "subSubType": "none"
+            },
+            "position": 8
         },
+        {
+            "token": "<EOS>",
+            "category": {
+                "type": "special",
+                "subType": "word",
+                "subSubType": "none"
+            },
+            "position": 9
+        }
     ]
     embeddings_manager = EmbeddingsManager(
         batch_size=2,
@@ -435,13 +458,13 @@ if __name__ == "__main__":
         with_mask=True,
     )
 
-    item_tensors, mask_tensors = embeddings_manager.get_sentence_combined_embeddings_with_mask(
+    item_tensors, mask_tensors, _ = embeddings_manager.get_sentence_combined_embeddings_with_mask(
         item,
         "func_to_nl_translation",
     )
     print(f"items tensors shape: {item_tensors.shape}")
 
-    batch_item_tensors, batch_mask_tensors = embeddings_manager.get_batch_combined_embeddings_with_mask(
+    batch_item_tensors, batch_mask_tensors, _ = embeddings_manager.get_batch_combined_embeddings_with_mask(
         [item, item],
         "func_to_nl_translation",
     )
