@@ -95,7 +95,7 @@ class TestTransformerInference(unittest.TestCase):
 
         batch_size = 1
         max_encoding_length = 20
-        max_decoding_length = 20
+        max_decoding_length = 10
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
@@ -104,16 +104,16 @@ class TestTransformerInference(unittest.TestCase):
             "The sun set behind the mountains, painting the sky in hues of orange and pink",
             "curious cat chased a fluttering butterfly through the lush garden",
             "She sipped her steaming cup of tea as she gazed out the window at the pouring rain",
-            "The laughter of children echoed through the park on a warm summer afternoon.",
-            "With a flick of his wrist, the magician made the playing cards disappear into thin air.",
+            "The laughter of children echoed through the park on a warm summer afternoon",
+            "With a flick of his wrist, the magician made the playing cards disappear into thin air",
         ]
         corpus_target = [
-            "The sun is shining brightly in the clear blue sky.",
-            "She studied hard for her exams and earned top grades.",
-            "The cat chased the mouse around the house.",
-            "He loves to play the guitar and sing songs.",
-            "They enjoyed a delicious meal at their favorite restaurant.",
-            "The book was so captivating that she couldn't put it down.",
+            "The sun is shining brightly in the clear blue sky",
+            "She studied hard for her exams and earned top grades",
+            "The cat chased the mouse around the house",
+            "He loves to play the guitar and sing songs",
+            "They enjoyed a delicious meal at their favorite restaurant",
+            "The book was so captivating that she couldn't put it down",
         ]
         combined_list = corpus_source + corpus_target
 
