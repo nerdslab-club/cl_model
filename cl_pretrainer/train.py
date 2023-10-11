@@ -142,7 +142,7 @@ class TestTransformerTraining(unittest.TestCase):
         batch_size = 3
         n_epochs = 35
         max_encoding_length = 20
-        max_decoding_length = 10
+        max_decoding_length = 20
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
@@ -249,7 +249,7 @@ class TestTransformerTraining(unittest.TestCase):
         batch_size = 3
         n_epochs = 1
         max_encoding_length = 20
-        max_decoding_length = 10
+        max_decoding_length = 20 # 10
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it

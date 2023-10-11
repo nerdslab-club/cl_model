@@ -226,13 +226,36 @@ class BatchBuilder:
         # Convert the list to a PyTorch tensor of integers (comparing with 1)
         padding_mask = torch.tensor(
             [[item[Constants.TOKEN] == SpecialTokens.PADDING.value
-                for item in io_parser_output]
-                for io_parser_output in batch_io_parser_output], dtype=torch.bool)
+              for item in io_parser_output]
+             for io_parser_output in batch_io_parser_output], dtype=torch.bool)
 
         return padding_mask
 
 
 class TestUtils(unittest.TestCase):
+    def test_get_sentence_io_parser_output(self):
+        sentence = "one two three four five six seven eight"
+        io_parser_output = BatchBuilder.get_sentence_io_parser_output(
+            sentence,
+            add_bos_and_eos=True,
+            max_sequence_length=12,
+        )
+        expected_result = [
+            {'token': '<BOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 0},
+            {'token': 'one', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 1},
+            {'token': 'two', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 2},
+            {'token': 'three', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 3},
+            {'token': 'four', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 4},
+            {'token': 'five', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 5},
+            {'token': 'six', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 6},
+            {'token': 'seven', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 7},
+            {'token': 'eight', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 8},
+            {'token': '<EOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 9},
+            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 10},
+            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 11},
+        ]
+        self.assertEqual(expected_result, io_parser_output)
+
     def test_construct_future_mask(self):
         mask = BatchBuilder.construct_future_mask(3)
         torch.testing.assert_close(
@@ -281,7 +304,7 @@ class TestUtils(unittest.TestCase):
         self.assertEqual((len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]),
                           len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY][0]),
                           len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY][0][0])),
-                         (len(corpus)//batch_size, batch_size, max_encoding_length))
+                         (len(corpus) // batch_size, batch_size, max_encoding_length))
 
 
 if __name__ == "__main__":
