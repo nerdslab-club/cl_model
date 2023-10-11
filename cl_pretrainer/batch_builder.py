@@ -15,9 +15,24 @@ class BatchBuilder:
     ENCODER_IO_PARSER_OUTPUT_KEY = "encoderIoParserOutput"
     DECODER_IO_PARSER_OUTPUT_KEY = "decoderIoParserOutput"
     FUTURE_MASK_KEY = "futureMaskKey"
-    ENCODER_PADDING_MASK_KEY = "encoderPaddingMaskKey"
-    DECODER_PADDING_MASK_KEY = "decoderPaddingMaskKey"
     PADDING_MASK_KEY = "paddingMaskKey"
+
+    #  corpus_source = [
+    #             "Laughter is contagious, spreading joy and happiness",
+    #             "Waves crash on the shore, a soothing lullaby",
+    #             "Stars twinkle in the vast, dark night sky",
+    #             "A smile can brighten even the gloomiest day",
+    #             "Time flies by when you're having fun",
+    #             "Nature's beauty heals the soul and inspires awe",
+    #         ]
+    #         corpus_target = [
+    #             "Birds sing at dawn, greeting morning.",
+    #             "Coffee warms, awakening the sleepy soul.",
+    #             "Moonlight shimmers on calm, still waters.",
+    #             "Raindrops dance on rooftops, serenading sleep.",
+    #             "Snow blankets earth in silent purity.",
+    #             "A hug speaks volumes without words.",
+    #         ]
 
     @staticmethod
     def get_batch_io_parser_output(
@@ -167,8 +182,7 @@ class BatchBuilder:
         }
         masks: Dict[str, List] = {
             BatchBuilder.FUTURE_MASK_KEY: [],
-            BatchBuilder.ENCODER_PADDING_MASK_KEY: [],
-            BatchBuilder.DECODER_PADDING_MASK_KEY: [],
+            BatchBuilder.PADDING_MASK_KEY: [],
         }
         for i in range(0, len(corpus), batch_size):
             input_sentences = [pair.get(BatchBuilder.SOURCE_LANGUAGE_KEY, "") for pair in corpus[i: i + batch_size]]
@@ -187,19 +201,16 @@ class BatchBuilder:
 
             future_mask = BatchBuilder.construct_future_mask(max_decoder_sequence_length)
             encoder_padding_mask = BatchBuilder.construct_padding_mask(src_batch)
-            decoder_padding_mask = BatchBuilder.construct_padding_mask(tgt_batch)
 
             if device is not None:
                 src_batch = src_batch.to(device)  # type: ignore
                 tgt_batch = tgt_batch.to(device)  # type: ignore
                 future_mask = future_mask.to(device)
                 encoder_padding_mask = encoder_padding_mask.to(device)
-                decoder_padding_mask = decoder_padding_mask.to(device)
 
             batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY].append(src_batch)
             batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY].append(tgt_batch)
-            masks[BatchBuilder.ENCODER_PADDING_MASK_KEY].append(encoder_padding_mask)
-            masks[BatchBuilder.DECODER_PADDING_MASK_KEY].append(decoder_padding_mask)
+            masks[BatchBuilder.PADDING_MASK_KEY].append(encoder_padding_mask)
             masks[BatchBuilder.FUTURE_MASK_KEY].append(future_mask)
         return batches, masks
 
