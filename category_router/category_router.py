@@ -1,7 +1,7 @@
 import unittest
 
 import torch
-from torch import nn
+from torch import nn, Tensor
 
 from cl_data.src.constants import TaskTypes
 from cl_pretrainer.batch_builder import BatchBuilder
@@ -47,25 +47,29 @@ class CategoryRouter(nn.Module):
             self,
             e_two: torch.Tensor,
             batch_route_ids: list[list[int]],
-    ) -> list[list[tuple[int, int]]]:
+    ) -> tuple[list[list[tuple[int, int]]], list[list[Tensor]]]:
         """
         Pass each 768 embeddings tensor in its own classification head to get the prediction
 
         :param e_two: embeddings for output token
         :param batch_route_ids: Batch integer index of the route
-        :return: batch of tuple (route_id, output_probability)
+        :return: batch of tuple of (route_id, output_probability) and batch logits
         """
         batch_result = []
+        batch_logits = []
         for i, route_ids in enumerate(batch_route_ids):
             sequence_result = []
+            sequence_logits = []
             e_two_sequence = e_two[i]
             for j, route_id in enumerate(route_ids):
                 e_two_item = e_two_sequence[j]
                 classification_head = self.index_to_route[route_id][CategoryRouter.ROUTE_CLASSIFICATION_HEAD]
-                output_probability = classification_head.forward(e_two_item)
+                output_probability, output_logits = classification_head.forward(e_two_item)
                 sequence_result.append((route_id, output_probability.squeeze().item()))
+                sequence_logits.append(output_logits)
             batch_result.append(sequence_result)
-        return batch_result
+            batch_logits.append(sequence_logits)
+        return batch_result, batch_logits
 
     def save_model(self, path: str):
         torch.save(self.state_dict(), path)
