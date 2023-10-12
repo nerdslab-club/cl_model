@@ -8,9 +8,24 @@ from cl_data.src.constants import TaskTypes
 from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.cl_pre_trainer import ClPreTrainer
 from cl_pretrainer.lr_scheduler import NoamOpt
-from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
+
+OUTPUT_LOGITS = "output_logits"
+TARGET_OUTPUT_PROBABILITY = "target_output_probability"
+IS_ITEM_PRESENT = "is_item_present"
+
+
+def create_initial_output_losses_map(output_classification_head_index_list: list) -> dict[int, dict]:
+    initial_output_losses_map = {}
+    for key in output_classification_head_index_list:
+        initial_output_losses_map[key] = {
+            OUTPUT_LOGITS: None,
+            TARGET_OUTPUT_PROBABILITY: [],
+            IS_ITEM_PRESENT: False,
+        }
+
+    return initial_output_losses_map
 
 
 def cl_pre_trainer_train(
@@ -34,20 +49,16 @@ def cl_pre_trainer_train(
     num_iters = 0
     for e in range(start_epoch, start_epoch + n_epochs):
         for i, (src_batch, padding_mask, tgt_batch, future_mask) in enumerate(
-            zip(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY],
-                masks[BatchBuilder.PADDING_MASK_KEY],
-                batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY],
-                masks[BatchBuilder.FUTURE_MASK_KEY])
+                zip(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY],
+                    masks[BatchBuilder.PADDING_MASK_KEY],
+                    batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY],
+                    masks[BatchBuilder.FUTURE_MASK_KEY])
         ):
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ Compute category probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             tgt_category_probability = torch.tensor(category_vocab_builder.batch_encoder(tgt_batch))
             # Removing the <BOS> category map
             tgt_category_probability = tgt_category_probability[:, 1:]
 
-            tgt_output_probability = torch.tensor(output_vocab_builder.batch_encoder(tgt_batch))
-            # Removing the <BOS> output token
-            tgt_output_probability = tgt_output_probability[:, 1:]
-
-            # Compute category probability
             e_one = model.category_map_decoder.forward(
                 batch_io_parser_output=src_batch,
                 task_type=task_type,
@@ -55,32 +66,7 @@ def cl_pre_trainer_train(
             )
 
             category_probability, category_logits = model.category_map_classification_head.forward(e_one)
-            predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
-            print(f"Predicted category probability values:"
-                  f" {predicted_category_map}")
-
             category_logits = category_logits[:, :-1, :]
-            # Compute output token probability
-            # e_two = model.output_token_decoder.forward(
-            #     batch_io_parser_output=src_batch,
-            #     task_type=task_type,
-            #     future_mask=future_mask,
-            # )
-            #
-            # predicted_io_parser_output_without_token = PreTrainerUtils.convert_category_map_into_io_parser_output_without_token(
-            #     batch_category_map=predicted_category_map,
-            # )
-            # batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
-            #     batch_io_parser_output=predicted_io_parser_output_without_token,
-            # )
-            #
-            # output_probability, output_logits = model.category_router.forward(
-            #     e_two=e_two,
-            #     batch_route_ids=batch_route_ids
-            # )
-            # predicted_output_token = output_vocab_builder.batch_decode(output_probability)
-            # print(f"Predicted token values:"
-            #       f" {predicted_output_token}")
 
             # Compute the average cross-entropy loss over all next-token predictions at each index i given [1, ..., i]
             # for the entire batch. Note that the original paper uses label smoothing (I was too lazy).
@@ -90,14 +76,48 @@ def cl_pre_trainer_train(
             )
 
             # Rough estimate of per-token accuracy in the current training batch
-            batch_category_accuracy = (torch.sum(category_logits.argmax(dim=-1) == tgt_category_probability)) / torch.numel(tgt_category_probability)
+            batch_category_accuracy = (torch.sum(
+                category_logits.argmax(dim=-1) == tgt_category_probability)) / torch.numel(tgt_category_probability)
+
+            # TODO Remove next two print afterward
+            print(f"category logits / intput: {category_logits.contiguous().permute(0, 2, 1).shape}")
+            print(f"tgt category probability / target: {tgt_category_probability.contiguous().long().shape}")
+
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            e_two = model.output_token_decoder.forward(
+                batch_io_parser_output=src_batch,
+                task_type=task_type,
+                future_mask=future_mask,
+            )
+
+            # As predicting proper category is the responsibility of the left side.
+            # That's why we are only concerning ourselves with the output token prediction.
+            # Provided we are always using the correct output classification head.
+            # That's why using the src_batch instead of the predicted batch category map.
+            batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
+                batch_io_parser_output=src_batch,
+            )
+            output_probability, output_logits = model.category_router.forward(
+                e_two=e_two,
+                batch_route_ids=batch_route_ids
+            )
+            # TODO Use not my token approach.
 
             if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0 or not is_training:
                 print(
                     f"epoch: {e}, num_iters: {num_iters}, "
                     f"batch_category_loss: {batch_category_loss}, batch_category_accuracy: {batch_category_accuracy}"
                 )
-                # Update parameters
+                if verbose_log:
+                    predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
+                    print(f"Predicted category probability values:"
+                          f" {predicted_category_map}")
+
+                    predicted_output_token = output_vocab_builder.batch_decode(output_probability)
+                    print(f"Predicted token values:"
+                          f" {predicted_output_token}")
+
+            # Update parameters
             if is_training:
                 batch_category_loss.backward()
                 scheduler.step()
@@ -189,7 +209,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             n_epochs=n_epochs,
             task_type=task_type,
             is_training=True,
-            verbose_log=False,
+            verbose_log=True,
         )
 
         print(f"batch loss {latest_batch_loss.item()}")
