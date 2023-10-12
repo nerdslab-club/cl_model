@@ -86,10 +86,11 @@ class OutputVocabBuilder:
                 self.output_token_classification_head_vocab_item_to_output_vocabularies[classification_head_item] = output_vocabulary
                 self.index_to_output_vocabularies[output_vocabulary_index] = output_vocabulary
 
-    def encoder(self, io_parser_output: list[dict]) -> list[tuple[int, int]]:
+    def encoder(self, io_parser_output: list[dict], is_only_probability=False) -> list[tuple[int, int]] | list[int]:
         """
         Tokenize io parser output -> (classification head id, output vocab token id)
 
+        :param is_only_probability: if Ture then provide only the output vocab token id otherwise both
         :param io_parser_output: Output of the io parser with or with padding and special tokens
         :return: list of tuple of (classification head id, output vocab token id)
         """
@@ -97,25 +98,31 @@ class OutputVocabBuilder:
         vocab_items = self.encode_io_parser_item_into_output_vocab_item(io_parser_output)
         for classification_head_item, token in vocab_items:
             output_vocabulary = self.output_token_classification_head_vocab_item_to_output_vocabularies[classification_head_item]
-            result.append(
-                (
-                    output_vocabulary[OutputVocabBuilder.INDEX],
-                    output_vocabulary[OutputVocabBuilder.OUTPUT_TO_INDEX][token]
-                ),
-            )
+            if is_only_probability:
+                result.append(output_vocabulary[OutputVocabBuilder.OUTPUT_TO_INDEX][token])
+            else:
+                result.append(
+                    (
+                        output_vocabulary[OutputVocabBuilder.INDEX],
+                        output_vocabulary[OutputVocabBuilder.OUTPUT_TO_INDEX][token]
+                    ),
+                )
         return result
 
     def batch_encoder(
-        self, batch_io_parser_output: list[list[dict]]
-    ) -> list[list[tuple[int, int]]]:
+        self,
+        batch_io_parser_output: list[list[dict]],
+        is_only_probability=False,
+    ) -> list[list[tuple[int, int]]] | list[list[int]]:
         """
         Batch tokenize io parser output -> (classification head id, output vocab token id)
 
+        :param is_only_probability: if Ture then provide only the output vocab token id otherwise both
         :param batch_io_parser_output: batch of io_parser_output
         :return: Batch of list tuple of (classification head id, output vocab token id)
         """
         batch_tokens = [
-            self.encoder(io_parser_output)
+            self.encoder(io_parser_output, is_only_probability)
             for io_parser_output in batch_io_parser_output
         ]
         return batch_tokens
