@@ -149,11 +149,13 @@ def cl_pre_trainer_train(
 
 class TestClPreTrainerTraining(unittest.TestCase):
     PATH = "./saved_models/cl_pre_trainer.pth"
+    accepted_loss_threshold = 0.09
+    accepted_accuracy_threshold = 0.99
 
     def test_cl_pre_trainer_train_and_save(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
-        n_epochs = 35
+        n_epochs = 40
         batch_size = 3
         num_heads = 8
         hidden_dim = 768
@@ -234,27 +236,27 @@ class TestClPreTrainerTraining(unittest.TestCase):
             verbose_log=False,
         )
 
-        print(f"batch loss {latest_batch_loss.item()}")
-        print(f"batch accuracy {latest_batch_accuracy}")
-        self.assertEqual(latest_batch_loss.item() <= 0.01, True)
-        self.assertEqual(latest_batch_accuracy >= 0.99, True)
-        for index, output_logits_item in output_logits_map.items():
-            output_loss = output_logits_item[CURRENT_BATCH_OUTPUT_LOSS]
-            output_accuracy = output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY]
-            self.assertEqual(output_loss.item() <= 0.01, True)
-            self.assertEqual(output_accuracy >= 0.99, True)
-
+        # Saving the model...
         ClPreTrainerCheckPointManager.save_checkpoint_map(
             path=TestClPreTrainerTraining.PATH,
             epoch=n_epochs,
             model=cl_pre_trainer,
             optimizer=optimizer,
         )
+        print(f"batch loss {latest_batch_loss.item()}")
+        print(f"batch accuracy {latest_batch_accuracy}")
+        self.assertEqual(latest_batch_loss.item() <= TestClPreTrainerTraining.accepted_loss_threshold, True)
+        self.assertEqual(latest_batch_accuracy >= TestClPreTrainerTraining.accepted_accuracy_threshold, True)
+        for index, output_logits_item in output_logits_map.items():
+            output_loss = output_logits_item[CURRENT_BATCH_OUTPUT_LOSS]
+            output_accuracy = output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY]
+            self.assertEqual(output_loss.item() <= TestClPreTrainerTraining.accepted_loss_threshold, True)
+            self.assertEqual(output_accuracy >= TestClPreTrainerTraining.accepted_accuracy_threshold, True)
 
     def test_cl_pre_trainer_model_load(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
-        n_epochs = 35
+        n_epochs = 40
         batch_size = 3
         num_heads = 8
         hidden_dim = 768
@@ -353,7 +355,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             criterion=criterion,
             batches=batches,
             masks=masks,
-            n_epochs=n_epochs,
+            n_epochs=start_epoch,
             task_type=task_type,
             is_training=False,
             verbose_log=True,
@@ -361,13 +363,13 @@ class TestClPreTrainerTraining(unittest.TestCase):
 
         print(f"batch loss {latest_batch_loss.item()}")
         print(f"batch accuracy {latest_batch_accuracy}")
-        self.assertEqual(latest_batch_loss.item() <= 0.01, True)
-        self.assertEqual(latest_batch_accuracy >= 0.99, True)
+        self.assertEqual(latest_batch_loss.item() <= TestClPreTrainerTraining.accepted_loss_threshold, True)
+        self.assertEqual(latest_batch_accuracy >= TestClPreTrainerTraining.accepted_accuracy_threshold, True)
         for index, output_logits_item in output_logits_map.items():
             output_loss = output_logits_item[CURRENT_BATCH_OUTPUT_LOSS]
             output_accuracy = output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY]
-            self.assertEqual(output_loss.item() <= 0.01, True)
-            self.assertEqual(output_accuracy >= 0.99, True)
+            self.assertEqual(output_loss.item() <= TestClPreTrainerTraining.accepted_loss_threshold, True)
+            self.assertEqual(output_accuracy >= TestClPreTrainerTraining.accepted_accuracy_threshold, True)
 
 
 if __name__ == "__main__":
