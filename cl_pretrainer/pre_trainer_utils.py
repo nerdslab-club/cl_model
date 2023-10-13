@@ -111,21 +111,6 @@ class PreTrainerUtils:
             batch_result.append(sequence_result)
         return torch.tensor(batch_result)
 
-    # OUTPUT_LOGITS = "output_logits"
-    # TARGET_OUTPUT_PROBABILITY = "target_output_probability"
-    # IS_ITEM_PRESENT = "is_item_present"
-    # @staticmethod
-    # def create_initial_output_losses_map(output_classification_head_index_list: list) -> dict[int, dict]:
-    #     initial_output_losses_map = {}
-    #     for key in output_classification_head_index_list:
-    #         initial_output_losses_map[key] = {
-    #             PreTrainerUtils.OUTPUT_LOGITS: None,
-    #             PreTrainerUtils.TARGET_OUTPUT_PROBABILITY: [],
-    #             PreTrainerUtils.IS_ITEM_PRESENT: False,
-    #         }
-    #
-    #     return initial_output_losses_map
-
 
 if __name__ == "__main__":
     embedding_length = 4
