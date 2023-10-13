@@ -3,7 +3,7 @@ import unittest
 import torch
 from torch import nn
 
-from cl_data.src.constants import TaskTypes, CategoryType, CategorySubType
+from cl_data.src.constants import TaskTypes
 from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.output_token_decoder import OutputTokenDecoder
 from embeddings_manager.embeddings_manager import EmbeddingsManager
@@ -155,7 +155,7 @@ class TestOutputTokenClassificationHead(unittest.TestCase):
                     for sublist in output_token_classification_head_output_list
                 ]
                 print(f"Predicted token values:"
-                      f" {output_vocab_builder.batch_decode(list_of_ids)}")
+                      f" {output_vocab_builder.batch_decode_for_inference(list_of_ids)}")
 
                 # Teacher forcing
                 batch_io_parser = BatchBuilder.get_batch_io_parser_output(sentences, False, index + 1)

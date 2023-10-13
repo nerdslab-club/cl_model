@@ -4,28 +4,17 @@ from typing import List, Dict, Any
 import torch
 from torch import nn
 
+from category_router.category_router import CategoryRouter
 from cl_data.src.constants import TaskTypes
 from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.cl_pre_trainer import ClPreTrainer
 from cl_pretrainer.lr_scheduler import NoamOpt
+from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
-OUTPUT_LOGITS = "output_logits"
-TARGET_OUTPUT_PROBABILITY = "target_output_probability"
-IS_ITEM_PRESENT = "is_item_present"
-
-
-def create_initial_output_losses_map(output_classification_head_index_list: list) -> dict[int, dict]:
-    initial_output_losses_map = {}
-    for key in output_classification_head_index_list:
-        initial_output_losses_map[key] = {
-            OUTPUT_LOGITS: None,
-            TARGET_OUTPUT_PROBABILITY: [],
-            IS_ITEM_PRESENT: False,
-        }
-
-    return initial_output_losses_map
+CURRENT_BATCH_OUTPUT_LOSS = "current_batch_output_loss"
+CURRENT_BATCH_OUTPUT_ACCURACY = "current_batch_output_accuracy"
 
 
 def cl_pre_trainer_train(
@@ -79,11 +68,9 @@ def cl_pre_trainer_train(
             batch_category_accuracy = (torch.sum(
                 category_logits.argmax(dim=-1) == tgt_category_probability)) / torch.numel(tgt_category_probability)
 
-            # TODO Remove next two print afterward
-            print(f"category logits / intput: {category_logits.contiguous().permute(0, 2, 1).shape}")
-            print(f"tgt category probability / target: {tgt_category_probability.contiguous().long().shape}")
-
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            tgt_output_probability = output_vocab_builder.batch_encoder(tgt_batch, is_only_probability=False)
+
             e_two = model.output_token_decoder.forward(
                 batch_io_parser_output=src_batch,
                 task_type=task_type,
@@ -97,29 +84,62 @@ def cl_pre_trainer_train(
             batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
                 batch_io_parser_output=src_batch,
             )
-            output_probability, output_logits = model.category_router.forward(
+            output_logits_map = model.category_router.forward(
                 e_two=e_two,
-                batch_route_ids=batch_route_ids
+                batch_route_ids=batch_route_ids,
+                is_training=True,
             )
-            # TODO Use not my token approach.
+
+            # Calculate output loss & accuracy for each classification head
+            for index, output_logits_item in output_logits_map.items():
+                current_tgt_output_probability = PreTrainerUtils.create_tgt_tensor_for_output_classification_head(
+                    output_classification_head_index=index,
+                    tgt_batch_probability=tgt_output_probability,
+                )
+                current_output_logits = output_logits_item[CategoryRouter.OUTPUT_LOGITS]
+
+                current_batch_output_loss = criterion(
+                    current_output_logits.contiguous().permute(0, 2, 1),
+                    current_tgt_output_probability.contiguous().long(),
+                )
+                current_batch_output_accuracy = (torch.sum(
+                    current_output_logits.argmax(dim=-1) == current_tgt_output_probability)) / torch.numel(
+                    current_tgt_output_probability)
+
+                output_logits_item[CURRENT_BATCH_OUTPUT_LOSS] = current_batch_output_loss
+                output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY] = current_batch_output_accuracy
+                output_logits_map[index] = output_logits_item
 
             if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0 or not is_training:
                 print(
                     f"epoch: {e}, num_iters: {num_iters}, "
                     f"batch_category_loss: {batch_category_loss}, batch_category_accuracy: {batch_category_accuracy}"
                 )
+                for index, output_logits_item in output_logits_map.items():
+                    output_loss = output_logits_item[CURRENT_BATCH_OUTPUT_LOSS]
+                    output_accuracy = output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY]
+                    print(f"output loss for index: {index} is {output_loss}\n"
+                          f"output accuracy for index: {index} is {output_accuracy}")
+
                 if verbose_log:
                     predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
                     print(f"Predicted category probability values:"
                           f" {predicted_category_map}")
 
-                    predicted_output_token = output_vocab_builder.batch_decode(output_probability)
-                    print(f"Predicted token values:"
-                          f" {predicted_output_token}")
+                    for index, output_logits_item in output_logits_map.items():
+                        current_head_output_probability = output_logits_item[CategoryRouter.OUTPUT_PROBABILITY]
+                        current_head_predicted_output_token = output_vocab_builder.batch_decode_for_training(
+                            index,
+                            current_head_output_probability.tolist(),
+                        )
+                        print(f"Predicted token values for index: {index} is \n"
+                              f"{current_head_predicted_output_token}")
 
             # Update parameters
             if is_training:
-                batch_category_loss.backward()
+                batch_category_loss.backward(retain_graph=True)
+                for index, output_logits_item in output_logits_map.items():
+                    output_logits_item[CURRENT_BATCH_OUTPUT_LOSS].backward(retain_graph=True)
                 scheduler.step()
                 scheduler.optimizer.zero_grad()
             num_iters += 1

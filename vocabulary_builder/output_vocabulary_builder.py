@@ -131,7 +131,7 @@ class OutputVocabBuilder:
         ]
         return batch_tokens
 
-    def decode(self, ids: list[tuple[int, int]]) -> list[tuple[OutputTokenClassificationHeadVocabItem, OutputVocabItem]]:
+    def decode_for_inference(self, ids: list[tuple[int, int]]) -> list[tuple[OutputTokenClassificationHeadVocabItem, OutputVocabItem]]:
         """Decode tokens id into output vocab item. (classification head id, output vocab token id) -> output vocab items
 
         :param ids: list of tuple of (classification head id, output vocab token id)
@@ -149,7 +149,7 @@ class OutputVocabBuilder:
             )
         return result
 
-    def batch_decode(self, list_of_ids: list[list[tuple[int, int]]]) -> list[list[tuple[OutputTokenClassificationHeadVocabItem, OutputVocabItem]]]:
+    def batch_decode_for_inference(self, list_of_ids: list[list[tuple[int, int]]]) -> list[list[tuple[OutputTokenClassificationHeadVocabItem, OutputVocabItem]]]:
         """Decode list of tokens into batch io parser output.
         batch (classification head id, output vocab token id) ->
         batch (output token classification head vocab item, output vocab items)
@@ -158,10 +158,34 @@ class OutputVocabBuilder:
         :return: batch (output token classification head vocab item, output vocab items)
         """
         batch_vocab_items = [
-            self.decode(ids)
+            self.decode_for_inference(ids)
             for ids in list_of_ids
         ]
         return batch_vocab_items
+
+    def decode_for_training(self, output_classification_head_index: int, tokens: list[int]) -> list[OutputVocabItem]:
+        """
+        Decode given output classification head integer tokens into sequence output vocab items
+        :param output_classification_head_index: Output classification head index
+        :param tokens: Integer tokens for a sentence
+        :return: list of output vocab items
+        """
+        vocabulary = self.index_to_output_vocabularies[output_classification_head_index]
+        vocab_items = [vocabulary[OutputVocabBuilder.INDEX_TO_OUTPUT][token] for token in tokens]
+        return vocab_items
+
+    def batch_decode_for_training(self, output_classification_head_index: int, list_of_tokens: list[list[int]]) -> list[list[OutputVocabItem]]:
+        """
+        Decode given output classification head integer tokens into batch output vocab items
+        :param output_classification_head_index: Output classification head index
+        :param list_of_tokens: list of tokens for a batch.
+        :return: batch of output vocab items
+        """
+        batch_output = []
+        for tokens in list_of_tokens:
+            vocab_items = self.decode_for_training(output_classification_head_index, tokens)
+            batch_output.append(vocab_items)
+        return batch_output
 
     @staticmethod
     def encode_io_parser_item_into_output_vocab_item(

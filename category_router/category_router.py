@@ -1,7 +1,8 @@
 import unittest
+from typing import Any
 
 import torch
-from torch import nn, Tensor
+from torch import nn
 
 from cl_data.src.constants import TaskTypes
 from cl_pretrainer.batch_builder import BatchBuilder
@@ -14,6 +15,8 @@ from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
 class CategoryRouter(nn.Module):
     ROUTE_CLASSIFICATION_HEAD = "route_classification_head"
+    OUTPUT_LOGITS = "output_logits"
+    OUTPUT_PROBABILITY = "output_probability"
 
     def __init__(
             self,
@@ -47,29 +50,38 @@ class CategoryRouter(nn.Module):
             self,
             e_two: torch.Tensor,
             batch_route_ids: list[list[int]],
-    ) -> tuple[list[list[tuple[int, int]]], list[list[Tensor]]]:
+            is_training=False,
+    ) -> dict[int, dict[str, Any]] | list[list[tuple[int, Any]]]:
         """
         Pass each 768 embeddings tensor in its own classification head to get the prediction
 
+        :param is_training: run training code if the flag is true
         :param e_two: embeddings for output token
         :param batch_route_ids: Batch integer index of the route
         :return: batch of tuple of (route_id, output_probability) and batch logits
         """
+        if is_training:
+            output_logits_map = {}
+            for index, route in self.index_to_route.items():
+                classification_head = route[CategoryRouter.ROUTE_CLASSIFICATION_HEAD]
+                current_output_probability, current_logits = classification_head.forward(e_two)
+                output_logits_map[index] = {
+                    CategoryRouter.OUTPUT_LOGITS: current_logits,
+                    CategoryRouter.OUTPUT_PROBABILITY: current_output_probability,
+                }
+            return output_logits_map
+
         batch_result = []
-        batch_logits = []
         for i, route_ids in enumerate(batch_route_ids):
             sequence_result = []
-            sequence_logits = []
             e_two_sequence = e_two[i]
             for j, route_id in enumerate(route_ids):
                 e_two_item = e_two_sequence[j]
                 classification_head = self.index_to_route[route_id][CategoryRouter.ROUTE_CLASSIFICATION_HEAD]
-                output_probability, output_logits = classification_head.forward(e_two_item)
+                output_probability, _ = classification_head.forward(e_two_item)
                 sequence_result.append((route_id, output_probability.squeeze().item()))
-                sequence_logits.append(output_logits)
             batch_result.append(sequence_result)
-            batch_logits.append(sequence_logits)
-        return batch_result, batch_logits
+        return batch_result
 
     def save_model(self, path: str):
         torch.save(self.state_dict(), path)
@@ -163,13 +175,13 @@ class TestCategoryRouter(unittest.TestCase):
                 batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
                     batch_io_parser,
                 )
-                category_router_output, _ = category_router.forward(
+                category_router_output = category_router.forward(
                     e_two=e_two,
                     batch_route_ids=batch_route_ids,
                 )
                 print(f"category router output shape: [{len(category_router_output)}, {len(category_router_output[0])}]")
                 print(f"Predicted token values:"
-                      f" {output_vocab_builder.batch_decode(category_router_output)}")
+                      f" {output_vocab_builder.batch_decode_for_inference(category_router_output)}")
 
                 # Teacher forcing
                 batch_io_parser = BatchBuilder.get_batch_io_parser_output(sentences, False, index + 1)
