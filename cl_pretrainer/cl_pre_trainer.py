@@ -174,7 +174,7 @@ class TestClPreTrainer(unittest.TestCase):
                     future_mask=future_mask,
                 )
 
-                category_probability = cl_pre_trainer.category_map_classification_head.forward(e_one)
+                category_probability, _ = cl_pre_trainer.category_map_classification_head.forward(e_one)
                 predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
                 print(f"Predicted category probability values:"
                       f" {predicted_category_map}")
@@ -195,9 +195,10 @@ class TestClPreTrainer(unittest.TestCase):
 
                 output_probability = cl_pre_trainer.category_router.forward(
                     e_two=e_two,
-                    batch_route_ids=batch_route_ids
+                    batch_route_ids=batch_route_ids,
+                    is_training=False,
                 )
-                predicted_output_token = output_vocab_builder.batch_decode(output_probability)
+                predicted_output_token = output_vocab_builder.batch_decode_for_inference(output_probability)
                 print(f"Predicted token values:"
                       f" {predicted_output_token}")
 

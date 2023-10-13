@@ -87,6 +87,45 @@ class PreTrainerUtils:
             batch_io_parser_output_without_token.append(sequence_io_parser_output_without_token)
         return batch_io_parser_output_without_token
 
+    @staticmethod
+    def create_tgt_tensor_for_output_classification_head(
+            output_classification_head_index: int,
+            tgt_batch_probability: list[list[tuple[int, int]]],
+    ) -> Tensor:
+        """
+        Create tgt tensor probability by adding not my token to tokens that are not for current index
+        Also convert the tgt batch probability to tensor.
+
+        :param output_classification_head_index:
+        :param tgt_batch_probability: Batch of list of tuple (classification head id, output vocab token id)
+        :return: tgt output probability tensor for the given output classification head
+        """
+        batch_result = []
+        for tgt_sequence_probability in tgt_batch_probability:
+            sequence_result = []
+            for route_id, vocab_item_index in tgt_sequence_probability:
+                if route_id == output_classification_head_index:
+                    sequence_result.append(vocab_item_index)
+                else:
+                    sequence_result.append(Constants.NOT_MY_TOKEN_INDEX)
+            batch_result.append(sequence_result)
+        return torch.tensor(batch_result)
+
+    # OUTPUT_LOGITS = "output_logits"
+    # TARGET_OUTPUT_PROBABILITY = "target_output_probability"
+    # IS_ITEM_PRESENT = "is_item_present"
+    # @staticmethod
+    # def create_initial_output_losses_map(output_classification_head_index_list: list) -> dict[int, dict]:
+    #     initial_output_losses_map = {}
+    #     for key in output_classification_head_index_list:
+    #         initial_output_losses_map[key] = {
+    #             PreTrainerUtils.OUTPUT_LOGITS: None,
+    #             PreTrainerUtils.TARGET_OUTPUT_PROBABILITY: [],
+    #             PreTrainerUtils.IS_ITEM_PRESENT: False,
+    #         }
+    #
+    #     return initial_output_losses_map
+
 
 if __name__ == "__main__":
     embedding_length = 4
