@@ -45,8 +45,12 @@ class OutputVocabBuilder:
             output_vocabulary_item = {
                 OutputVocabBuilder.INDEX: index,
                 OutputVocabBuilder.OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM: output_token_classification_head_vocab_item,
-                OutputVocabBuilder.INDEX_TO_OUTPUT: {},
-                OutputVocabBuilder.OUTPUT_TO_INDEX: {},
+                OutputVocabBuilder.INDEX_TO_OUTPUT: {
+                    0: Constants.NOT_MY_TOKEN,
+                },
+                OutputVocabBuilder.OUTPUT_TO_INDEX: {
+                    Constants.NOT_MY_TOKEN: 0,
+                },
             }
             self.index_to_output_vocabularies[index] = output_vocabulary_item
 

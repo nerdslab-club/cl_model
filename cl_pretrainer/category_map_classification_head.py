@@ -116,7 +116,7 @@ class TestCategoryMapClassificationHead(unittest.TestCase):
                     future_mask=future_mask,
                 )
 
-                category_map_classification_head_output = category_map_classification_head.forward(
+                category_map_classification_head_output, _ = category_map_classification_head.forward(
                     category_map_decoder_output,
                 )
                 print(f"category map decoder input: {batch_io_parser}")
