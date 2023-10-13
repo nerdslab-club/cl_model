@@ -144,7 +144,7 @@ class TestOutputTokenClassificationHead(unittest.TestCase):
                     future_mask=future_mask,
                 )
 
-                output_token_classification_head_output = output_token_classification_head.forward(
+                output_token_classification_head_output, _ = output_token_classification_head.forward(
                     output_token_decoder_output,
                 )
 
