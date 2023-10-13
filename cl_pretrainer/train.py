@@ -232,6 +232,8 @@ class TestTransformerTraining(unittest.TestCase):
 
         print(f"batch loss {latest_batch_loss.item()}")
         print(f"batch accuracy {latest_batch_accuracy}")
+        self.assertEqual(latest_batch_loss.item() <= 0.01, True)
+        self.assertEqual(latest_batch_accuracy >= 0.99, True)
 
         CheckPointManager.save_checkpoint_map(
             TestTransformerTraining.PATH,
@@ -239,9 +241,6 @@ class TestTransformerTraining(unittest.TestCase):
             transformer,
             optimizer,
         )
-
-        self.assertEqual(latest_batch_loss.item() <= 0.01, True)
-        self.assertEqual(latest_batch_accuracy >= 0.99, True)
 
     def test_model_load(self):
         device = (
