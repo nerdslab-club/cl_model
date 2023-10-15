@@ -97,7 +97,12 @@ def cl_pre_trainer_train(
                     output_classification_head_index=index,
                     tgt_batch_probability=tgt_output_probability,
                 )
+                # Removing the <BOS> tgt output probability
+                current_tgt_output_probability = current_tgt_output_probability[:, 1:]
+
                 current_output_logits = output_logits_item[CategoryRouter.OUTPUT_LOGITS]
+                # Removing the last garbage token from output logits
+                current_output_logits = current_output_logits[:, :-1, :]
 
                 current_batch_output_loss = criterion(
                     current_output_logits.contiguous().permute(0, 2, 1),
@@ -233,7 +238,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             n_epochs=n_epochs,
             task_type=task_type,
             is_training=True,
-            verbose_log=False,
+            verbose_log=True,
         )
 
         # Saving the model...
