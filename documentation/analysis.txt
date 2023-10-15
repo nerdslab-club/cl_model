@@ -1,0 +1,142 @@
+sentences = [
+            "The quick brown fox jumps over the lazy dog in the meadow",
+            "Adding 3 plus 2 equals ##addition(3,2)",
+            "##subtraction(5,1) is the minus value of 1 from 5",
+]
+
+[
+     ~~~~~~~~~~~~~~ "The quick brown fox jumps over the lazy dog in the meadow", ~~~~~~~~~~~~
+    [
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'}
+    ],
+    ~~~~~~~~~~~"Adding 3 plus 2 equals ##addition(3,2)"~~~~~~~~~~~~~
+    [
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'function', 'subType': 'integer', 'subSubType': 'execute'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'param_one'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'param_last'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'}
+    ],
+    ~~~~~~~~~~~ "##subtraction(5,1) is the minus value of 1 from 5" ~~~~~~~~~~~~~
+    [
+        {'type': 'function', 'subType': 'integer', 'subSubType': 'execute'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'param_one'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'param_last'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+    ]
+]
+
+Predicted token values for index: 0 is Special
+[
+    ['nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', '<PAD>', '<PAD>', '<EOS>', '<EOS>'],
+    ['nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<EOS>', '<EOS>'],
+    ['nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<PAD>', '<EOS>', '<EOS>']
+]
+
+Predicted token values for index: 1 is word
+[
+    ['The', 'quick', 'brown', 'fox', 'jumps', 'over', 'the', 'lazy', 'dog', 'in', 'the', 'meadow', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN'],
+    ['Adding', 'nOtMyToKeN', 'plus', 'nOtMyToKeN', 'equals', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN'],
+    ['nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN']
+]
+
+Predicted token values for index: 2 is Integer
+[
+    ['nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN'],
+    ['nOtMyToKeN', 3, 'nOtMyToKeN', 2, 'nOtMyToKeN', 'nOtMyToKeN', 3, 2, 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN'],
+    ['nOtMyToKeN', 5, 1, 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN']]
+
+Predicted token values for index: 3 is Function
+[
+    ['nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN'],
+    ['nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', <function MathFunctions.addition at 0x12edcc9d0>, 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN'],
+    [<function MathFunctions.subtraction at 0x12edcca60>, 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN', 'nOtMyToKeN'],
+]
+
+
+[[
+    {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+     {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+      {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+      {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+       {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+       {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+       {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+       {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+         {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+          {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+           {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+            {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+             {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+              {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+               {'type': 'special', 'subType': 'word', 'subSubType': 'none'}
+   ],
+    [
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'word', 'subType': 'default', 'subSubType': 'none'},
+        {'type': 'function', 'subType': 'integer', 'subSubType': 'execute'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'param_one'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'param_last'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'}
+    ],
+    [
+        {'type': 'function', 'subType': 'integer', 'subSubType': 'execute'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'param_one'},
+        {'type': 'integer', 'subType': 'default', 'subSubType': 'param_last'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+        {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+         {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+          {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+           {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+           {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+           {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+           {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, {'type': 'special', 'subType': 'word', 'subSubType': 'none'}]]
