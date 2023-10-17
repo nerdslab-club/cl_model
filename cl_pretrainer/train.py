@@ -143,7 +143,7 @@ class TestTransformerTraining(unittest.TestCase):
         n_epochs = 35
         # Minimum encoding length is 16
         max_encoding_length = 20
-        max_decoding_length = 8
+        max_decoding_length = 12
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
@@ -156,12 +156,12 @@ class TestTransformerTraining(unittest.TestCase):
             "The book was so captivating that she couldn't put it down",
         ]
         corpus_target = [
-            "He reads books daily",
-            "I like chocolate ice cream",
-            "Dogs bark loudly at night",
-            "She dances gracefully on stage",
-            "Flowers bloom in springtime",
-            "Raindrops fall gently from clouds"
+            "I like chocolate ice cream with milk",
+            "Dogs bark loudly at snowy night",
+            "Raindrops fall gently from clouds",
+            "Each children will receive ##division(9,3) candies",
+            "Adding 3 plus 2 equals ##addition(3,2)",
+            "The result of subtracting 1 from 5 is ##subtraction(5,1)"
         ]
         combined_list = corpus_source + corpus_target
 
@@ -250,7 +250,7 @@ class TestTransformerTraining(unittest.TestCase):
         n_epochs = 1
         # Minimum encoding length is 16
         max_encoding_length = 20
-        max_decoding_length = 8
+        max_decoding_length = 12
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         # Construct vocabulary and create synthetic data by uniform randomly sampling tokens from it
@@ -263,12 +263,12 @@ class TestTransformerTraining(unittest.TestCase):
             "The book was so captivating that she couldn't put it down",
         ]
         corpus_target = [
-            "He reads books daily",
-            "I like chocolate ice cream",
-            "Dogs bark loudly at night",
-            "She dances gracefully on stage",
-            "Flowers bloom in springtime",
-            "Raindrops fall gently from clouds"
+            "I like chocolate ice cream with milk",
+            "Dogs bark loudly at snowy night",
+            "Raindrops fall gently from clouds",
+            "Each children will receive ##division(9,3) candies",
+            "Adding 3 plus 2 equals ##addition(3,2)",
+            "The result of subtracting 1 from 5 is ##subtraction(5,1)"
         ]
         combined_list = corpus_source + corpus_target
 

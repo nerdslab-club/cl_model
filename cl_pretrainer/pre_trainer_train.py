@@ -174,7 +174,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
         sentences = [
             "The quick brown fox jumps over the lazy dog in the meadow",
             "Adding 3 plus 2 equals ##addition(3,2)",
-            "##subtraction(5,1) is the minus value of 1 from 5",
+            "Each children will receive ##division(9,3) candies",
+            "The result of subtracting 1 from 5 is ##subtraction(5,1)"
         ]
         corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, 15)
         # Initialize category vocabulary builder instance
