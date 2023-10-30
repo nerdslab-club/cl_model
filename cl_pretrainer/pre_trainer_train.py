@@ -218,8 +218,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
         )
         cl_pre_trainer.eval()
         # Initialize learning rate scheduler, optimizer and loss (note: the original paper uses label smoothing)
-        optimizer = torch.optim.Adam(
-            cl_pre_trainer.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9
+        optimizer = torch.optim.AdamW(
+            cl_pre_trainer.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9, weight_decay=0.01,
         )
         scheduler = NoamOpt(
             cl_pre_trainer.hidden_dim,
