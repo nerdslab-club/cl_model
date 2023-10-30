@@ -33,6 +33,7 @@ class OutputVocabBuilder:
     OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM = "output_token_classification_head_vocab_item"
     INDEX_TO_OUTPUT = "index_to_output"
     OUTPUT_TO_INDEX = "output_to_index"
+    INDEX_TO_COUNT = "index_to_count"
 
     def __init__(
             self,
@@ -46,10 +47,13 @@ class OutputVocabBuilder:
                 OutputVocabBuilder.INDEX: index,
                 OutputVocabBuilder.OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM: output_token_classification_head_vocab_item,
                 OutputVocabBuilder.INDEX_TO_OUTPUT: {
-                    0: Constants.NOT_MY_TOKEN,
+                    Constants.NOT_MY_TOKEN_INDEX: Constants.NOT_MY_TOKEN,
+                },
+                OutputVocabBuilder.INDEX_TO_COUNT: {
+                    Constants.NOT_MY_TOKEN_INDEX: 1,
                 },
                 OutputVocabBuilder.OUTPUT_TO_INDEX: {
-                    Constants.NOT_MY_TOKEN: 0,
+                    Constants.NOT_MY_TOKEN: Constants.NOT_MY_TOKEN_INDEX,
                 },
             }
             self.index_to_output_vocabularies[index] = output_vocabulary_item
@@ -76,18 +80,29 @@ class OutputVocabBuilder:
             # TODO as we are converting list to string in the response parser this need to be reverted
             if isinstance(token, list):
                 token = str(token)
+
             output_vocabulary = self.output_token_classification_head_vocab_item_to_output_vocabularies[classification_head_item]
             output_vocabulary_index = output_vocabulary[OutputVocabBuilder.INDEX]
             vocab_item_to_index = output_vocabulary[OutputVocabBuilder.OUTPUT_TO_INDEX]
             index_to_vocab_item = output_vocabulary[OutputVocabBuilder.INDEX_TO_OUTPUT]
+            index_to_count = output_vocabulary[OutputVocabBuilder.INDEX_TO_COUNT]
 
             if token not in vocab_item_to_index:
                 i = len(vocab_item_to_index.items())
                 vocab_item_to_index[token] = i
                 index_to_vocab_item[i] = token
+                index_to_count[i] = 1
                 output_vocabulary[OutputVocabBuilder.OUTPUT_TO_INDEX] = vocab_item_to_index
                 output_vocabulary[OutputVocabBuilder.INDEX_TO_OUTPUT] = index_to_vocab_item
+                output_vocabulary[OutputVocabBuilder.INDEX_TO_COUNT] = index_to_count
                 self.output_token_classification_head_vocab_item_to_output_vocabularies[classification_head_item] = output_vocabulary
+                self.index_to_output_vocabularies[output_vocabulary_index] = output_vocabulary
+            else:
+                token_index = vocab_item_to_index[token]
+                index_to_count[token_index] = index_to_count[token_index] + 1
+                output_vocabulary[OutputVocabBuilder.INDEX_TO_COUNT] = index_to_count
+                self.output_token_classification_head_vocab_item_to_output_vocabularies[
+                    classification_head_item] = output_vocabulary
                 self.index_to_output_vocabularies[output_vocabulary_index] = output_vocabulary
 
     def encoder(self, io_parser_output: list[dict], is_only_probability=False) -> list[tuple[int, int]] | list[int]:
