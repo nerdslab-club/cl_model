@@ -6,6 +6,8 @@ from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
 
 class PreTrainerUtils:
+    NOT_MY_TOKEN_LOSS_WEIGHT = 0.3
+
     @staticmethod
     def create_function_param_token_infos(
             x: Tensor,
@@ -130,7 +132,7 @@ class PreTrainerUtils:
             weights[class_index] = weight
 
         if is_output_classification_head:
-            weights[Constants.NOT_MY_TOKEN_INDEX] = Constants.NOT_MY_TOKEN_LOSS_WEIGHT
+            weights[Constants.NOT_MY_TOKEN_INDEX] = PreTrainerUtils.NOT_MY_TOKEN_LOSS_WEIGHT
         return weights
 
     @staticmethod
