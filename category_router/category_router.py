@@ -83,6 +83,28 @@ class CategoryRouter(nn.Module):
             batch_result.append(sequence_result)
         return batch_result
 
+    def load_output_classification_head(self, index: int, state_dict: dict):
+        """
+        Given the trained state dict of the output classification head it reload the same state
+        :param index: Index of the output classification head
+        :param state_dict: Trained state dict of the output classification head
+        :return: None
+        """
+        route = self.index_to_route[index]
+        output_classification_head = route[CategoryRouter.ROUTE_CLASSIFICATION_HEAD]
+        output_classification_head.load_saved_model_from_state_dict(state_dict)
+        route[CategoryRouter.ROUTE_CLASSIFICATION_HEAD] = output_classification_head
+        self.index_to_route[index] = route
+
+    def load_all_output_classification_head(self, all_state_dict: dict[int, dict]):
+        """
+        Given the trained state dict of all the output classification head it reload them all
+        :param all_state_dict: Trained state dict of all the output classification heads
+        :return: None
+        """
+        for index, _ in self.index_to_route.items():
+            self.load_output_classification_head(index, all_state_dict[index])
+
     def save_model(self, path: str):
         torch.save(self.state_dict(), path)
 
