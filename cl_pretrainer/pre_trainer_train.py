@@ -57,6 +57,7 @@ def cl_pre_trainer_train(
             )
 
             category_probability, category_logits = model.category_map_classification_head.forward(e_one)
+            category_probability = category_probability[:, :-1]
             category_logits = category_logits[:, :-1, :]
 
             # Compute the average cross-entropy loss over all next-token predictions at each index i given [1, ..., i]
@@ -138,6 +139,7 @@ def cl_pre_trainer_train(
 
                     for index, output_logits_item in output_logits_map.items():
                         current_head_output_probability = output_logits_item[CategoryRouter.OUTPUT_PROBABILITY]
+                        current_head_output_probability = current_head_output_probability[:, :-1]
                         current_head_predicted_output_token = output_vocab_builder.batch_decode_for_training(
                             index,
                             current_head_output_probability.tolist(),
@@ -179,7 +181,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             "The quick brown fox jumps over the lazy dog in the meadow",
             "Adding 3 plus 2 equals ##addition(3,2)",
             "Each children will receive ##division(9,3) candies",
-            "The result of subtracting 1 from 5 is ##subtraction(5,1)"
+            "The result of subtracting 1 from 5 is ##subtraction(5,1)",
         ]
         corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, max_decoding_length)
         # Initialize category vocabulary builder instance
@@ -260,6 +262,14 @@ class TestClPreTrainerTraining(unittest.TestCase):
             model=cl_pre_trainer,
             optimizer=optimizer,
         )
+
+        # one_index_to_route = cl_pre_trainer.category_router.index_to_route[1]
+        # one_output_classification_head = one_index_to_route[CategoryRouter.ROUTE_CLASSIFICATION_HEAD]
+        # torch.save(
+        #     one_output_classification_head.state_dict(),
+        #     TestClPreTrainerTraining.ONE_OUTPUT_CLASSIFICATION_HEAD_PATH,
+        # )
+
         print(f"batch loss {latest_batch_loss.item()}")
         print(f"batch accuracy {latest_batch_accuracy}")
         self.assertEqual(latest_batch_loss.item() <= TestClPreTrainerTraining.accepted_loss_threshold, True)
@@ -270,13 +280,10 @@ class TestClPreTrainerTraining(unittest.TestCase):
             self.assertEqual(output_loss.item() <= TestClPreTrainerTraining.accepted_loss_threshold, True)
             self.assertEqual(output_accuracy >= TestClPreTrainerTraining.accepted_accuracy_threshold, True)
 
-        print(f"Param values for category router is: {cl_pre_trainer.category_router.state_dict()}")
-
     def test_cl_pre_trainer_model_load(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-
         n_epochs = 40
-        batch_size = 3
+        batch_size = 2
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
@@ -290,9 +297,9 @@ class TestClPreTrainerTraining(unittest.TestCase):
             "The quick brown fox jumps over the lazy dog in the meadow",
             "Adding 3 plus 2 equals ##addition(3,2)",
             "Each children will receive ##division(9,3) candies",
-            "The result of subtracting 1 from 5 is ##subtraction(5,1)"
+            "The result of subtracting 1 from 5 is ##subtraction(5,1)",
         ]
-        corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, 15)
+        corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, max_decoding_length)
         # Initialize category vocabulary builder instance
         category_vocab_builder = CategoryVocabBuilder(corpus_io_parser_output)
         category_vocab_size = len(category_vocab_builder.category_vocab_item_to_index.keys())
@@ -340,12 +347,14 @@ class TestClPreTrainerTraining(unittest.TestCase):
         checkpoint_map = ClPreTrainerCheckPointManager.load_checkpoint_map(
             TestClPreTrainerTraining.PATH
         )
+        # Load CL-Pre-Trainer states
         cl_pre_trainer.load_saved_model_from_state_dict(
             ClPreTrainerCheckPointManager.get_checkpoint_item(
                 checkpoint_map,
                 ClPreTrainerCheckPointManager.CL_PRE_TRAINER_STATE,
             ),
         )
+        # Load Optimizer states
         optimizer.load_state_dict(
             ClPreTrainerCheckPointManager.get_checkpoint_item(
                 checkpoint_map,
@@ -356,6 +365,22 @@ class TestClPreTrainerTraining(unittest.TestCase):
             checkpoint_map,
             ClPreTrainerCheckPointManager.EPOCH,
         )
+
+        # Load Category map Output token classification heads state
+        cl_pre_trainer.category_router.load_all_output_classification_head(
+            ClPreTrainerCheckPointManager.get_checkpoint_item(
+                checkpoint_map,
+                ClPreTrainerCheckPointManager.OUTPUT_TOKEN_CLASSIFICATION_HEADS_STATE,
+            ),
+        )
+
+        # cl_pre_trainer.category_router.load_output_classification_head(
+        #     1,
+        #     ClPreTrainerCheckPointManager.load_checkpoint_map(
+        #         TestClPreTrainerTraining.ONE_OUTPUT_CLASSIFICATION_HEAD_PATH,
+        #     ),
+        # )
+
         print("Model loaded correctly...")
 
         scheduler = NoamOpt(
@@ -365,7 +390,14 @@ class TestClPreTrainerTraining(unittest.TestCase):
             optimizer=optimizer,
         )
 
-        # Call training loop for inference using the saved model ...
+        category_criterion = PreTrainerUtils.get_category_criterion(
+            category_index_to_count=category_vocab_builder.index_to_count,
+        )
+        output_criterion_map = PreTrainerUtils.get_output_criterion_map(
+            index_to_output_vocabularies=output_vocab_builder.index_to_output_vocabularies,
+        )
+
+        # Start training and verify ~zero loss and >90% accuracy on the last batch
         latest_batch_loss, latest_batch_accuracy, output_logits_map = cl_pre_trainer_train(
             model=cl_pre_trainer,
             category_vocab_builder=category_vocab_builder,
@@ -377,6 +409,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
             task_type=task_type,
             is_training=False,
             verbose_log=True,
+            category_criterion=category_criterion,
+            output_criterion_map=output_criterion_map,
         )
 
         print(f"batch loss {latest_batch_loss.item()}")
