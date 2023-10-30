@@ -23,7 +23,6 @@ def cl_pre_trainer_train(
         category_vocab_builder: CategoryVocabBuilder,
         output_vocab_builder: OutputVocabBuilder,
         scheduler: Any,
-        criterion: Any,
         batches: Dict[str, List[List[List[dict]]]],
         masks: Dict[str, List[torch.Tensor]],
         n_epochs: int,
@@ -60,7 +59,7 @@ def cl_pre_trainer_train(
 
             # Compute the average cross-entropy loss over all next-token predictions at each index i given [1, ..., i]
             # for the entire batch. Note that the original paper uses label smoothing (I was too lazy).
-            batch_category_loss = criterion(
+            batch_category_loss = nn.CrossEntropyLoss(label_smoothing=0.1)(
                 category_logits.contiguous().permute(0, 2, 1),
                 tgt_category_probability.contiguous().long(),
             )
@@ -91,6 +90,7 @@ def cl_pre_trainer_train(
                 is_training=True,
             )
 
+            combined_output_losses = []
             # Calculate output loss & accuracy for each classification head
             for index, output_logits_item in output_logits_map.items():
                 current_tgt_output_probability = PreTrainerUtils.create_tgt_tensor_for_output_classification_head(
@@ -104,10 +104,12 @@ def cl_pre_trainer_train(
                 # Removing the last garbage token from output logits
                 current_output_logits = current_output_logits[:, :-1, :]
 
-                current_batch_output_loss = criterion(
+                current_batch_output_loss = nn.CrossEntropyLoss(label_smoothing=0.1)(
                     current_output_logits.contiguous().permute(0, 2, 1),
                     current_tgt_output_probability.contiguous().long(),
                 )
+                combined_output_losses.append(current_batch_output_loss)
+
                 current_batch_output_accuracy = (torch.sum(
                     current_output_logits.argmax(dim=-1) == current_tgt_output_probability)) / torch.numel(
                     current_tgt_output_probability)
@@ -143,9 +145,9 @@ def cl_pre_trainer_train(
 
             # Update parameters
             if is_training:
-                batch_category_loss.backward(retain_graph=True)
-                for index, output_logits_item in output_logits_map.items():
-                    output_logits_item[CURRENT_BATCH_OUTPUT_LOSS].backward(retain_graph=True)
+                batch_category_loss.backward()
+                total_loss = sum(combined_output_losses)
+                total_loss.backward()
                 scheduler.step()
                 scheduler.optimizer.zero_grad()
             num_iters += 1
@@ -225,7 +227,6 @@ class TestClPreTrainerTraining(unittest.TestCase):
             warmup=400,
             optimizer=optimizer,
         )
-        criterion = nn.CrossEntropyLoss()
 
         # Start training and verify ~zero loss and >90% accuracy on the last batch
         latest_batch_loss, latest_batch_accuracy, output_logits_map = cl_pre_trainer_train(
@@ -233,7 +234,6 @@ class TestClPreTrainerTraining(unittest.TestCase):
             category_vocab_builder=category_vocab_builder,
             output_vocab_builder=output_vocab_builder,
             scheduler=scheduler,
-            criterion=criterion,
             batches=batches,
             masks=masks,
             n_epochs=n_epochs,
