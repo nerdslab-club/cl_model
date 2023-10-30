@@ -59,6 +59,7 @@ class CategoryVocabBuilder:
             CategoryVocabBuilder.get_special_vocab_item(): 0,
         }
         self.index_to_category_vocab_item = {v: k for k, v in self.category_vocab_item_to_index.items()}
+        self.index_to_count = {v: 1 for _, v in self.category_vocab_item_to_index.items()}
         if not corpus_of_io_parser_output:
             return
         for io_parser_output in corpus_of_io_parser_output:
@@ -92,6 +93,10 @@ class CategoryVocabBuilder:
                 i = len(self.category_vocab_item_to_index.items())
                 self.category_vocab_item_to_index[token] = i
                 self.index_to_category_vocab_item[i] = token
+                self.index_to_count[i] = 1
+            else:
+                token_index = self.category_vocab_item_to_index[token]
+                self.index_to_count[token_index] = self.index_to_count[token_index] + 1
 
     def encoder(self, io_parser_output: list[dict]) -> list[int]:
         """

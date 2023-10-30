@@ -1,7 +1,8 @@
 import torch
-from torch import Tensor
+from torch import Tensor, nn
 
 from cl_data.src.constants import Constants
+from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
 
 class PreTrainerUtils:
@@ -110,6 +111,39 @@ class PreTrainerUtils:
                     sequence_result.append(Constants.NOT_MY_TOKEN_INDEX)
             batch_result.append(sequence_result)
         return torch.tensor(batch_result)
+
+    @staticmethod
+    def get_category_criterion(category_index_to_count: dict[int, int]) -> any:
+        return nn.CrossEntropyLoss(
+            label_smoothing=0.01,
+            weight=PreTrainerUtils.calculate_loss_weight(category_index_to_count)
+        )
+
+    @staticmethod
+    def calculate_loss_weight(index_to_count: dict[int, int], is_output_classification_head=False) -> Tensor:
+        total_sample = sum(value for value in index_to_count.values())
+        sorted_items = sorted(index_to_count.items(), key=lambda item: item[0])
+        # Calculate class weights
+        weights = torch.zeros(len(sorted_items))
+        for class_index, count in sorted_items:
+            weight = total_sample / count
+            weights[class_index] = weight
+
+        if is_output_classification_head:
+            weights[Constants.NOT_MY_TOKEN_INDEX] = Constants.NOT_MY_TOKEN_LOSS_WEIGHT
+        return weights
+
+    @staticmethod
+    def get_output_criterion_map(index_to_output_vocabularies: dict) -> dict[int, any]:
+        losses_map = {}
+        for index, output_vocabulary in index_to_output_vocabularies.items():
+            current_index_to_count = output_vocabulary[OutputVocabBuilder.INDEX_TO_COUNT]
+            current_loss = nn.CrossEntropyLoss(
+                label_smoothing=0.01,
+                weight=PreTrainerUtils.calculate_loss_weight(current_index_to_count, is_output_classification_head=True)
+            )
+            losses_map[index] = current_loss
+        return losses_map
 
 
 if __name__ == "__main__":
