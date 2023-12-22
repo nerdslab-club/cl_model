@@ -81,6 +81,7 @@ class BatchBuilder:
             batch_size: int,
             max_decoder_sequence_length: int,
             device: Optional[torch.device] = None,
+            is_generative_training=False,
     ) -> Tuple[Dict[str, list[list[list[dict]]]], Dict[str, List[torch.Tensor]]]:
         """Constructs batches given sample corpus for cl pre trainer model
 
@@ -95,15 +96,18 @@ class BatchBuilder:
         :param batch_size: The number of sequences in a batch
         :param max_decoder_sequence_length: Truncate/Allowed max decoder sequence length. If None then no padding.
         :param device: whether to move tensors to gpu
+        :param is_generative_training: Flag for generative training like: 0123 -> 01234, 01234 -> 012345 ...
         :return: A tuple containing two dictionaries.
         The first represents the batches, This is batch io parser output.
         Second one represents the attention masks. This is bool Tensor.
         """
-        next_token_task_corpus = [
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: src, BatchBuilder.TARGET_LANGUAGE_KEY: tgt} for src, tgt in
-            zip(corpus, corpus)
-        ]
-
+        if is_generative_training:
+            next_token_task_corpus = BatchBuilder.create_generative_training_samples(corpus)
+        else:
+            next_token_task_corpus = [
+                {BatchBuilder.SOURCE_LANGUAGE_KEY: src, BatchBuilder.TARGET_LANGUAGE_KEY: tgt} for src, tgt in
+                zip(corpus, corpus)
+            ]
         batches: Dict[str, List] = {
             BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY: [],
             BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY: [],
@@ -146,6 +150,49 @@ class BatchBuilder:
             masks[BatchBuilder.PADDING_MASK_KEY].append(padding_mask)
             masks[BatchBuilder.FUTURE_MASK_KEY].append(future_mask)
         return batches, masks
+
+    @staticmethod
+    def create_generative_training_samples(corpus: List[str]) -> List[Dict[str, str]]:
+        """
+        After three words this function will create samples by using 1-3 words as input and 1-4 words as output.
+        Which is actually next word prediction. This process will be continued until the whole sentence is covered.
+
+        :param corpus: This is a list of sentences on which the model is to be trained. ie.
+        [
+           "In the kingdom of Numerosia, where equations adorned the walls and numbers held the key to understanding",
+           "lived a passionate mathematician named Mia.",
+           "Mia's life was dedicated to unraveling mathematical puzzles",
+           "and her reputation extended far beyond the kingdom's borders.",
+           "One fateful day, a mysterious messenger delivered an ornate scroll to her doorstep.",
+        ]
+        :return: List of dictionaries where the input key is BatchBuilder.SOURCE_LANGUAGE_KEY
+        and the output key is BatchBuilder.TARGET_LANGUAGE_KEY
+        """
+
+        samples = []
+
+        for sentence in corpus:
+            words = sentence.split()
+
+            for i in range(len(words) - 3):
+                # Input sequence: 1-3 words
+                input_sequence = " ".join(words[0: i + 3])
+
+                # Output sequence: 1-4 words
+                output_sequence = " ".join(words[0: i + 4])
+
+                # Add the sample to the list
+                sample = {
+                    BatchBuilder.SOURCE_LANGUAGE_KEY: input_sequence,
+                    BatchBuilder.TARGET_LANGUAGE_KEY: output_sequence
+                }
+                samples.append(sample)
+
+        return samples
+
+    @staticmethod
+    def get_next_token_prediction_task_corpus():
+        pass
 
     @staticmethod
     def construct_batches_for_transformer(
@@ -246,6 +293,20 @@ class BatchBuilder:
 
 
 class TestUtils(unittest.TestCase):
+
+    def test_create_generative_training_samples(self):
+        corpus = [
+            "one two three four five six seven",
+        ]
+        generative_samples = BatchBuilder.create_generative_training_samples(corpus)
+        expected_result = [
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four"},
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five"},
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six"},
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven"},
+        ]
+        self.assertEqual(generative_samples, expected_result)
+
     def test_get_sentence_io_parser_output(self):
         # Full length with padding, BOS and EOS
         sentence = "one two three four five six seven eight"
@@ -274,8 +335,10 @@ class TestUtils(unittest.TestCase):
             {'token': 'seven', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 7},
             {'token': 'eight', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 8},
             {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 9},
-            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 10},
-            {'token': '<EOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 11},
+            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+             'position': 10},
+            {'token': '<EOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+             'position': 11},
         ]
         self.assertEqual(expected_result, io_parser_output)
         # Truncated length with Padding, BOS and EOS
