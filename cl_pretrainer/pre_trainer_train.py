@@ -207,6 +207,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             sentences,
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
+            is_generative_training=True,
         )
         # Initializing the CL pre trainer
         cl_pre_trainer = ClPreTrainer(
@@ -263,13 +264,6 @@ class TestClPreTrainerTraining(unittest.TestCase):
             optimizer=optimizer,
         )
 
-        # one_index_to_route = cl_pre_trainer.category_router.index_to_route[1]
-        # one_output_classification_head = one_index_to_route[CategoryRouter.ROUTE_CLASSIFICATION_HEAD]
-        # torch.save(
-        #     one_output_classification_head.state_dict(),
-        #     TestClPreTrainerTraining.ONE_OUTPUT_CLASSIFICATION_HEAD_PATH,
-        # )
-
         print(f"batch loss {latest_batch_loss.item()}")
         print(f"batch accuracy {latest_batch_accuracy}")
         self.assertEqual(latest_batch_loss.item() <= TestClPreTrainerTraining.accepted_loss_threshold, True)
@@ -323,6 +317,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             sentences,
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
+            # is_generative_training=True,
         )
         # Initializing the CL pre trainer
         cl_pre_trainer = ClPreTrainer(
@@ -373,13 +368,6 @@ class TestClPreTrainerTraining(unittest.TestCase):
                 ClPreTrainerCheckPointManager.OUTPUT_TOKEN_CLASSIFICATION_HEADS_STATE,
             ),
         )
-
-        # cl_pre_trainer.category_router.load_output_classification_head(
-        #     1,
-        #     ClPreTrainerCheckPointManager.load_checkpoint_map(
-        #         TestClPreTrainerTraining.ONE_OUTPUT_CLASSIFICATION_HEAD_PATH,
-        #     ),
-        # )
 
         print("Model loaded correctly...")
 
