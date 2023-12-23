@@ -7,9 +7,7 @@ from torch import nn
 from cl_data.src.constants import TaskTypes
 from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.cl_pre_trainer import ClPreTrainer
-from cl_pretrainer.lr_scheduler import NoamOpt
 from cl_pretrainer.pre_trainer_checkpoint_manager import ClPreTrainerCheckPointManager
-from cl_pretrainer.pre_trainer_train import CURRENT_BATCH_OUTPUT_ACCURACY, CURRENT_BATCH_OUTPUT_LOSS
 from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
@@ -22,34 +20,37 @@ def cl_pre_trainer_inference(
         batches: Dict[str, List[List[List[dict]]]],
         masks: Dict[str, List[torch.Tensor]],
         task_type: str,
-        criterion: Any,
         max_decoding_length: int,
-        start_epoch=0,
 ):
     model.train(False)
     num_iters = 0
-
-    for i, (src_batch, tgt_batch, future_mask) in enumerate(
+    for i, (src_batch, padding_mask, tgt_batch, future_mask) in enumerate(
             zip(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY],
+                masks[BatchBuilder.PADDING_MASK_KEY],
                 batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY],
-                masks[BatchBuilder.FUTURE_MASK_KEY])):
+                masks[BatchBuilder.FUTURE_MASK_KEY])
+    ):
+        # Initially we need at least 4 words for predicting the next word
         current_sequence_length = 4
         truncated_src_batch = [sequence_list[:current_sequence_length] for sequence_list in src_batch]
         truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length)
-        for index in range(1): #,max_decoding_length+1
-            # Staring left side for category map
+
+        # range will be max_decoding_length - current_sequence_length
+        # (We can add +1 but that will produce the garbage token)
+        for index in range(max_decoding_length - current_sequence_length):
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ Compute category probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             e_one = model.category_map_decoder.forward(
                 batch_io_parser_output=truncated_src_batch,
                 task_type=task_type,
                 future_mask=truncated_future_mask,
             )
 
-            category_probability, _ = model.category_map_classification_head.forward(e_one)
+            category_probability, category_logits = model.category_map_classification_head.forward(e_one)
             predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
-            print(f"Predicted category probability values:"
-                  f" {predicted_category_map}")
+            # print(f"Predicted category probability values:"
+            #       f" {predicted_category_map}")
 
-            # Starting right side for output token
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             e_two = model.output_token_decoder.forward(
                 batch_io_parser_output=truncated_src_batch,
                 task_type=task_type,
@@ -62,7 +63,8 @@ def cl_pre_trainer_inference(
             batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
                 batch_io_parser_output=predicted_io_parser_output_without_token,
             )
-
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  is_training=False ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            # SO WE ARE ALSO USING output_vocab_builder.batch_decode_for_inference
             output_probability = model.category_router.forward(
                 e_two=e_two,
                 batch_route_ids=batch_route_ids,
@@ -73,13 +75,18 @@ def cl_pre_trainer_inference(
             print(f"Predicted token values:"
                   f" {predicted_output_token}")
 
-            # TODO remove Teacher forcing \/
-            # truncated_src_batch = BatchBuilder.get_batch_io_parser_output(sentences, True, index + 1)
-            # future_mask = BatchBuilder.construct_future_mask(index + 1)
+            # Removed the teacher forcing and added the prediction to the src batch
+            predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output(predicted_category_map, predicted_output_token, start_from=1)
+            truncated_src_batch = PreTrainerUtils.add_prediction_to_truncated_list(predicted_io_parser_output, truncated_src_batch)
+            truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length + index + 1)
 
-        # TODO Calculate the loss here
+        tgt_batch = [sequence_list[1:] for sequence_list in tgt_batch]
+        truncated_src_batch = [sequence_list[1:] for sequence_list in truncated_src_batch]
+        print(f"Target batch: {tgt_batch}")
+        print(f"Predicted batch: {truncated_src_batch}")
         num_iters += 1
-    pass
+
+    print("DONE")
 
 
 class TestClPreTrainerInference(unittest.TestCase):
@@ -89,7 +96,7 @@ class TestClPreTrainerInference(unittest.TestCase):
 
     def test_cl_pre_trainer_model_load_and_inference(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-        batch_size = 3
+        batch_size = 2
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
@@ -101,9 +108,10 @@ class TestClPreTrainerInference(unittest.TestCase):
         sentences = [
             "The quick brown fox jumps over the lazy dog in the meadow",
             "Adding 3 plus 2 equals ##addition(3,2)",
-            "##subtraction(5,1) is the minus value of 1 from 5",
+            "Each children will receive ##division(9,3) candies",
+            "The result of subtracting 1 from 5 is ##subtraction(5,1)",
         ]
-        corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, 15)
+        corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, max_decoding_length)
         # Initialize category vocabulary builder instance
         category_vocab_builder = CategoryVocabBuilder(corpus_io_parser_output)
         category_vocab_size = len(category_vocab_builder.category_vocab_item_to_index.keys())
@@ -127,6 +135,7 @@ class TestClPreTrainerInference(unittest.TestCase):
             sentences,
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
+            is_generative_training=False,
         )
         # Initializing the CL pre trainer
         cl_pre_trainer = ClPreTrainer(
@@ -151,12 +160,14 @@ class TestClPreTrainerInference(unittest.TestCase):
         checkpoint_map = ClPreTrainerCheckPointManager.load_checkpoint_map(
             TestClPreTrainerInference.PATH
         )
+        # Load CL-Pre-Trainer states
         cl_pre_trainer.load_saved_model_from_state_dict(
             ClPreTrainerCheckPointManager.get_checkpoint_item(
                 checkpoint_map,
                 ClPreTrainerCheckPointManager.CL_PRE_TRAINER_STATE,
             ),
         )
+        # Load Optimizer states
         optimizer.load_state_dict(
             ClPreTrainerCheckPointManager.get_checkpoint_item(
                 checkpoint_map,
@@ -168,33 +179,26 @@ class TestClPreTrainerInference(unittest.TestCase):
             ClPreTrainerCheckPointManager.EPOCH,
         )
 
+        # Load Category map Output token classification heads state
+        cl_pre_trainer.category_router.load_all_output_classification_head(
+            ClPreTrainerCheckPointManager.get_checkpoint_item(
+                checkpoint_map,
+                ClPreTrainerCheckPointManager.OUTPUT_TOKEN_CLASSIFICATION_HEADS_STATE,
+            ),
+        )
+
         print("Model loaded correctly...")
 
-        criterion = nn.CrossEntropyLoss()
-
-        # Call training loop for inference using the saved model ...
-        # latest_batch_loss, latest_batch_accuracy, output_logits_map = \
+        # Call the inference method without teacher forcing
         cl_pre_trainer_inference(
             model=cl_pre_trainer,
             category_vocab_builder=category_vocab_builder,
             output_vocab_builder=output_vocab_builder,
-            criterion=criterion,
             batches=batches,
             masks=masks,
-            start_epoch=start_epoch,
             task_type=task_type,
             max_decoding_length=max_decoding_length,
         )
-
-        # print(f"batch loss {latest_batch_loss.item()}")
-        # print(f"batch accuracy {latest_batch_accuracy}")
-        # self.assertEqual(latest_batch_loss.item() <= TestClPreTrainerInference.accepted_loss_threshold, True)
-        # self.assertEqual(latest_batch_accuracy >= TestClPreTrainerInference.accepted_accuracy_threshold, True)
-        # for index, output_logits_item in output_logits_map.items():
-        #     output_loss = output_logits_item[CURRENT_BATCH_OUTPUT_LOSS]
-        #     output_accuracy = output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY]
-        #     self.assertEqual(output_loss.item() <= TestClPreTrainerInference.accepted_loss_threshold, True)
-        #     self.assertEqual(output_accuracy >= TestClPreTrainerInference.accepted_accuracy_threshold, True)
 
 
 if __name__ == "__main__":
