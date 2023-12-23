@@ -3,6 +3,8 @@ from torch import Tensor, nn
 
 from cl_data.src.constants import Constants
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
+from vocabulary_builder.category_vocabulary_builder import OutputTokenClassificationHeadVocabItem
+from vocabulary_builder.output_vocabulary_builder import OutputVocabItem
 
 
 class PreTrainerUtils:
@@ -89,6 +91,45 @@ class PreTrainerUtils:
                 sequence_io_parser_output_without_token.append(io_parser_output_without_token)
             batch_io_parser_output_without_token.append(sequence_io_parser_output_without_token)
         return batch_io_parser_output_without_token
+
+    @staticmethod
+    def recreate_io_parser_output(
+            predicted_category_map: list[list[dict[str, str]]],
+            predicted_output_token: list[list[tuple[OutputTokenClassificationHeadVocabItem, OutputVocabItem]]],
+            start_from=0,
+    ) -> list[list[dict[str, any]]]:
+        """
+        Recreate the batch of io parser output from predicted category map and output token
+        :param start_from: where to start the counting of the position
+        :param predicted_category_map: batch of category map
+        :param predicted_output_token: batch of output token
+        :return: batch io parser output
+        """
+        batch_io_parser_output = []
+        for category_maps, output_tokens in zip(predicted_category_map, predicted_output_token):
+            sequence_io_parser_output = []
+            position = start_from
+            for category_map, output_token in zip(category_maps, output_tokens):
+                io_parser_output = {
+                    Constants.CATEGORY: category_map,
+                    Constants.POSITION: position,
+                    Constants.TOKEN: output_token[1]
+                }
+                sequence_io_parser_output.append(io_parser_output)
+                position = position + 1
+            batch_io_parser_output.append(sequence_io_parser_output)
+        return batch_io_parser_output
+
+    @staticmethod
+    def add_prediction_to_truncated_list(
+            predicted_io_parser_output: list[list[dict[str, any]]],
+            truncated_src_batch: list[list[dict[str, any]]],
+    ) -> list[list[dict[str, any]]]:
+        for pred_list, src_list in zip(predicted_io_parser_output, truncated_src_batch):
+            if pred_list:
+                last_dict_in_pred = pred_list[-1]
+                src_list.append(last_dict_in_pred)
+        return truncated_src_batch
 
     @staticmethod
     def create_tgt_tensor_for_output_classification_head(

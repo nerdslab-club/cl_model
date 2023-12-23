@@ -87,6 +87,8 @@ def cl_pre_trainer_train(
             batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
                 batch_io_parser_output=src_batch,
             )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  is_training=True ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            # SO WE ARE ALSO USING output_vocab_builder.batch_decode_for_training
             output_logits_map = model.category_router.forward(
                 e_two=e_two,
                 batch_route_ids=batch_route_ids,
@@ -207,7 +209,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             sentences,
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
-            is_generative_training=True,
+            is_generative_training=False,
         )
         # Initializing the CL pre trainer
         cl_pre_trainer = ClPreTrainer(
@@ -317,7 +319,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             sentences,
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
-            # is_generative_training=True,
+            is_generative_training=False,
         )
         # Initializing the CL pre trainer
         cl_pre_trainer = ClPreTrainer(

@@ -148,6 +148,7 @@ class OutputVocabBuilder:
 
     def decode_for_inference(self, ids: list[tuple[int, int]]) -> list[tuple[OutputTokenClassificationHeadVocabItem, OutputVocabItem]]:
         """Decode tokens id into output vocab item. (classification head id, output vocab token id) -> output vocab items
+        OutputTokenClassificationHeadVocabItem is the ID
 
         :param ids: list of tuple of (classification head id, output vocab token id)
         :return: list of tuple of output token classification head item and output vocab items
