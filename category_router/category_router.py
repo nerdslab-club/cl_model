@@ -50,17 +50,17 @@ class CategoryRouter(nn.Module):
             self,
             e_two: torch.Tensor,
             batch_route_ids: list[list[int]],
-            is_training=False,
+            is_hub=False,
     ) -> dict[int, dict[str, Any]] | list[list[tuple[int, Any]]]:
         """
         Pass each 768 embeddings tensor in its own classification head to get the prediction
 
-        :param is_training: run training code if the flag is true
+        :param is_hub: run in hub mode if the flag is true
         :param e_two: embeddings for output token
         :param batch_route_ids: Batch integer index of the route
         :return: batch of tuple of (route_id, output_probability) and batch logits
         """
-        if is_training:
+        if is_hub:
             output_logits_map = {}
             for index, route in self.index_to_route.items():
                 classification_head = route[CategoryRouter.ROUTE_CLASSIFICATION_HEAD]

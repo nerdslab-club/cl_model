@@ -1,3 +1,4 @@
+# this method is less likely to work. Need more exploration
 import unittest
 from typing import List, Dict, Any
 
@@ -63,12 +64,12 @@ def cl_pre_trainer_inference(
             batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
                 batch_io_parser_output=predicted_io_parser_output_without_token,
             )
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  is_training=False ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  is_hub=False ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # SO WE ARE ALSO USING output_vocab_builder.batch_decode_for_inference
             output_probability = model.category_router.forward(
                 e_two=e_two,
                 batch_route_ids=batch_route_ids,
-                is_training=False,
+                is_hub=False,
             )
 
             predicted_output_token = output_vocab_builder.batch_decode_for_inference(output_probability)
@@ -76,7 +77,7 @@ def cl_pre_trainer_inference(
                   f" {predicted_output_token}")
 
             # Removed the teacher forcing and added the prediction to the src batch
-            predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output(predicted_category_map, predicted_output_token, start_from=1)
+            predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output_switch(predicted_category_map, predicted_output_token, start_from=1)
             truncated_src_batch = PreTrainerUtils.add_prediction_to_truncated_list(predicted_io_parser_output, truncated_src_batch)
             truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length + index + 1)
 

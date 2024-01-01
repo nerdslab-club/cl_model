@@ -87,12 +87,12 @@ def cl_pre_trainer_train(
             batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
                 batch_io_parser_output=src_batch,
             )
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  is_training=True ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  is_hub=True ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             # SO WE ARE ALSO USING output_vocab_builder.batch_decode_for_training
             output_logits_map = model.category_router.forward(
                 e_two=e_two,
                 batch_route_ids=batch_route_ids,
-                is_training=True,
+                is_hub=True,
             )
 
             combined_output_losses = []
