@@ -196,7 +196,7 @@ class TestClPreTrainer(unittest.TestCase):
                 output_probability = cl_pre_trainer.category_router.forward(
                     e_two=e_two,
                     batch_route_ids=batch_route_ids,
-                    is_training=False,
+                    is_hub=False,
                 )
                 predicted_output_token = output_vocab_builder.batch_decode_for_inference(output_probability)
                 print(f"Predicted token values:"

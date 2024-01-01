@@ -47,11 +47,12 @@ class PreTrainerUtils:
 
                     if current_tensor is None:
                         current_map["start"] = (i, j)
-                        current_map["encoder_hidden_state"] = batch_encoder_hidden_states[i][current_encoder_hidden_state_index]
-                        current_tensor = x[i][j-1].unsqueeze(0) if shift_right else x[i][j].unsqueeze(0)
+                        current_map["encoder_hidden_state"] = batch_encoder_hidden_states[i][
+                            current_encoder_hidden_state_index]
+                        current_tensor = x[i][j - 1].unsqueeze(0) if shift_right else x[i][j].unsqueeze(0)
                     else:
                         current_tensor = torch.cat(
-                            (current_tensor, x[i][j-1].unsqueeze(0) if shift_right else x[i][j].unsqueeze(0)),
+                            (current_tensor, x[i][j - 1].unsqueeze(0) if shift_right else x[i][j].unsqueeze(0)),
                             dim=0,
                         )
                 elif current_tensor is not None:
@@ -93,7 +94,7 @@ class PreTrainerUtils:
         return batch_io_parser_output_without_token
 
     @staticmethod
-    def recreate_io_parser_output(
+    def recreate_io_parser_output_switch(
             predicted_category_map: list[list[dict[str, str]]],
             predicted_output_token: list[list[tuple[OutputTokenClassificationHeadVocabItem, OutputVocabItem]]],
             start_from=0,
@@ -114,6 +115,41 @@ class PreTrainerUtils:
                     Constants.CATEGORY: category_map,
                     Constants.POSITION: position,
                     Constants.TOKEN: output_token[1]
+                }
+                sequence_io_parser_output.append(io_parser_output)
+                position = position + 1
+            batch_io_parser_output.append(sequence_io_parser_output)
+        return batch_io_parser_output
+
+    @staticmethod
+    def recreate_io_parser_output_hub(
+            predicted_category_map: list[list[dict[str, str]]],
+            predicted_tokens_map: dict[OutputTokenClassificationHeadVocabItem, dict[any, list[list[OutputVocabItem]] | int]],
+            start_from=0,
+    ) -> list[list[dict[str, any]]]:
+        """
+        Recreate the batch of io parser output from predicted category map and predicted token with each classification
+        head output tokens.
+        :param predicted_category_map: batch of category map
+        :param predicted_tokens_map: batch of output token for each output classification head
+        :param start_from: where to start the counting of the position
+        :return: batch io parser output
+        """
+        batch_io_parser_output = []
+        for i, category_maps in enumerate(predicted_category_map):
+            sequence_io_parser_output = []
+            position = start_from
+            for j, category_map in enumerate(category_maps):
+                output_token_classification_head_vocab_item = OutputTokenClassificationHeadVocabItem(
+                        category_type=category_map.get(Constants.CATEGORY_TYPE),
+                        category_subtype=category_map.get(Constants.CATEGORY_SUB_TYPE),
+                    )
+                current_token_batch = predicted_tokens_map[output_token_classification_head_vocab_item][OutputVocabBuilder.PREDICTED_TOKEN_KEY]
+                current_token_sequence = current_token_batch[i]
+                io_parser_output = {
+                    Constants.CATEGORY: category_map,
+                    Constants.POSITION: position,
+                    Constants.TOKEN: current_token_sequence[j]
                 }
                 sequence_io_parser_output.append(io_parser_output)
                 position = position + 1
@@ -197,7 +233,9 @@ if __name__ == "__main__":
     x = torch.randn(mask_tensor.size(0), mask_tensor.size(1), embedding_length, dtype=torch.float32)
 
     # Create a batch of encoder hidden states
-    batch_encoder_hidden_states = [[torch.randn(10, embedding_length)], [torch.randn(10, embedding_length), torch.randn(10, embedding_length)]]
+    batch_encoder_hidden_states = [[torch.randn(10, embedding_length)],
+                                   [torch.randn(10, embedding_length), torch.randn(10, embedding_length)]]
 
-    output = PreTrainerUtils.create_function_param_token_infos(x, mask_tensor, batch_encoder_hidden_states, shift_right=True)
+    output = PreTrainerUtils.create_function_param_token_infos(x, mask_tensor, batch_encoder_hidden_states,
+                                                               shift_right=True)
     print(output)

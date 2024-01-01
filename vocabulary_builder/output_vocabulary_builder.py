@@ -34,6 +34,7 @@ class OutputVocabBuilder:
     INDEX_TO_OUTPUT = "index_to_output"
     OUTPUT_TO_INDEX = "output_to_index"
     INDEX_TO_COUNT = "index_to_count"
+    PREDICTED_TOKEN_KEY = "predicted_token_key"
 
     def __init__(
             self,
