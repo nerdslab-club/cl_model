@@ -72,7 +72,8 @@ class BatchBuilder:
         return Utility.create_io_map_from_io_tuple(
             input_list=io_parser_tuples,
             add_bos_and_eos=add_bos_and_eos,
-            max_length=max_sequence_length
+            max_length=max_sequence_length,
+            is_eos_finishing_token=False,
         )
 
     @staticmethod
@@ -334,10 +335,10 @@ class TestUtils(unittest.TestCase):
             {'token': 'six', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 6},
             {'token': 'seven', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 7},
             {'token': 'eight', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 8},
-            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 9},
-            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
-             'position': 10},
             {'token': '<EOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+             'position': 9},
+            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 10},
+            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
              'position': 11},
         ]
         self.assertEqual(expected_result, io_parser_output)
@@ -353,7 +354,7 @@ class TestUtils(unittest.TestCase):
             {'token': 'two', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 2},
             {'token': 'three', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 3},
             {'token': 'four', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 4},
-            {'token': '<EOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 5},
+            {'token': 'five', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 5},
         ]
         self.assertEqual(expected_result, io_parser_output)
         # Full length without Padding, BOS and EOS
