@@ -2,6 +2,7 @@ import torch
 from torch import nn, Tensor
 
 from cl_pretrainer.multi_head_attention import MultiHeadAttention
+from cl_pretrainer.rmsnorm_torch import RMSNorm
 
 
 class CategoryMapBlock(nn.Module):
@@ -19,8 +20,8 @@ class CategoryMapBlock(nn.Module):
         self.category_map_block_dropout1 = nn.Dropout(p=dropout_p)
         self.category_map_block_dropout2 = nn.Dropout(p=dropout_p)
         # Normalizing layer for propagating the token values
-        self.category_map_block_layer_norm1 = nn.LayerNorm(hidden_dim)
-        self.category_map_block_layer_norm2 = nn.LayerNorm(hidden_dim)
+        self.category_map_block_layer_norm1 = RMSNorm(hidden_dim)
+        self.category_map_block_layer_norm2 = RMSNorm(hidden_dim)
 
     def forward(self,
                 x: torch.FloatTensor,

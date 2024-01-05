@@ -2,6 +2,7 @@ import torch
 from torch import nn
 
 from cl_pretrainer.multi_head_attention import MultiHeadAttention
+from cl_pretrainer.rmsnorm_torch import RMSNorm
 
 
 class OutputTokenBlock(nn.Module):
@@ -17,8 +18,8 @@ class OutputTokenBlock(nn.Module):
         self.output_token_block_dropout1 = nn.Dropout(p=dropout_p)
         self.output_token_block_dropout2 = nn.Dropout(p=dropout_p)
         # Normalizing layer for propagating the token values
-        self.output_token_block_layer_norm1 = nn.LayerNorm(hidden_dim)
-        self.output_token_block_layer_norm2 = nn.LayerNorm(hidden_dim)
+        self.output_token_block_layer_norm1 = RMSNorm(hidden_dim)
+        self.output_token_block_layer_norm2 = RMSNorm(hidden_dim)
 
     def forward(self, x: torch.FloatTensor):
         """ output token block takes the x tensor which is the output of the common block.

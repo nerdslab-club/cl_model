@@ -6,6 +6,8 @@ from torch import nn
 from cl_data.src.constants import TaskTypes
 from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.category_map_decoder import CategoryMapDecoder
+from cl_pretrainer.rmsnorm_torch import RMSNorm
+from cl_pretrainer.swiglu_activation import SwiGLU
 from embeddings_manager.embeddings_manager import EmbeddingsManager
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 
@@ -16,14 +18,14 @@ class CategoryMapClassificationHead(nn.Module):
 
         self.category_map_classification_head_feed_forward = nn.Sequential(
             nn.Linear(hidden_dim, ff_dim),
-            nn.LeakyReLU(),
+            nn.PReLU(),
             nn.Linear(ff_dim, hidden_dim),
         )
 
         # Dropout is also known as regularization
         self.category_map_classification_head_dropout = nn.Dropout(p=dropout_p)
         # Normalizing layer for propagating the token values
-        self.category_map_classification_head_layer_norm = nn.LayerNorm(hidden_dim)
+        self.category_map_classification_head_layer_norm = RMSNorm(hidden_dim)
 
         # Projecting the hidden dimension into vocabulary size,
         # so that we can use softmax and find specific word probability.

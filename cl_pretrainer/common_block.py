@@ -3,6 +3,7 @@ from torch import nn
 from typing import Optional
 
 from cl_pretrainer.multi_head_attention import MultiHeadAttention
+from cl_pretrainer.rmsnorm_torch import RMSNorm
 
 
 class CommonBlock(nn.Module):
@@ -14,7 +15,9 @@ class CommonBlock(nn.Module):
         # Dropout is also known as regularization
         self.common_block_dropout = nn.Dropout(p=dropout_p)
         # Normalizing layer for propagating the token values
-        self.common_block_layer_norm = nn.LayerNorm(hidden_dim)
+        # self.common_block_layer_norm = nn.LayerNorm(hidden_dim)
+        self.common_block_layer_norm = RMSNorm(hidden_dim)
+
 
     def forward(
         self,
