@@ -9,3 +9,6 @@ torch==2.0.1
 labml==0.4.167
 matplotlib==3.7.2
 Deprecated == 1.2.14
+sympy==1.12
+nltk==3.8.1
+dataclasses==0.8
