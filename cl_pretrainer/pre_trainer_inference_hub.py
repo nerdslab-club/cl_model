@@ -115,7 +115,7 @@ def cl_pre_trainer_inference_hub(
 
 
 class TestClPreTrainerInference(unittest.TestCase):
-    PATH = "./saved_models/cl_pre_trainer.pth"
+    PATH = "./saved_models/cl_pre_trainer_one.pth"
     accepted_loss_threshold = 0.09
     accepted_accuracy_threshold = 0.99
 

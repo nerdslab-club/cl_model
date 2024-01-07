@@ -161,7 +161,7 @@ def cl_pre_trainer_train(
 
 
 class TestClPreTrainerTraining(unittest.TestCase):
-    PATH = "./saved_models/cl_pre_trainer_hub.pth"
+    PATH = "./saved_models/cl_pre_trainer_one.pth"
     accepted_loss_threshold = 0.90
     accepted_accuracy_threshold = 0.99
 
@@ -290,6 +290,9 @@ class TestClPreTrainerTraining(unittest.TestCase):
 
         # Creating the vocabulary corpus
         sentences = [
+            # "The average of 2 , 3 , 4 is = ##average([2,3,4])",
+            # "&&average([1,2,3])",
+            # "@@average(@list)",
             "The quick brown fox jumps over the lazy dog in the meadow",
             "Adding 3 plus 2 equals ##addition(3,2)",
             "Each children will receive ##division(9,3) candies",
