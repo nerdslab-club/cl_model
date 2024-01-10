@@ -1,7 +1,7 @@
 # complete this first
 
 import unittest
-from typing import List, Dict, Any
+from typing import List, Dict
 
 import torch
 from torch import nn
@@ -12,6 +12,7 @@ from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.cl_pre_trainer import ClPreTrainer
 from cl_pretrainer.pre_trainer_checkpoint_manager import ClPreTrainerCheckPointManager
 from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
+from evaluation_matric.bleu import get_n_gram_weights, calculate_corpus_bleu_score
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
@@ -25,6 +26,8 @@ def cl_pre_trainer_inference_hub(
         task_type: str,
         max_decoding_length: int,
 ):
+    target_batches = []
+    predicted_batches = []
     model.train(False)
     num_iters = 0
     for i, (src_batch, padding_mask, tgt_batch, future_mask) in enumerate(
@@ -34,7 +37,7 @@ def cl_pre_trainer_inference_hub(
                 masks[BatchBuilder.FUTURE_MASK_KEY])
     ):
         # Initially we need at least 4 words for predicting the next word
-        current_sequence_length = 4
+        current_sequence_length = 6
         truncated_src_batch = [sequence_list[:current_sequence_length] for sequence_list in src_batch]
         truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length)
 
@@ -105,13 +108,32 @@ def cl_pre_trainer_inference_hub(
                                                                                    truncated_src_batch)
             truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length + index + 1)
 
+        # Removing <BOS> from both tgt and predicted sentences
         tgt_batch = [sequence_list[1:] for sequence_list in tgt_batch]
         truncated_src_batch = [sequence_list[1:] for sequence_list in truncated_src_batch]
         print(f"Target batch: {tgt_batch}")
         print(f"Predicted batch: {truncated_src_batch}")
+        target_batches.append(tgt_batch)
+        predicted_batches.append(truncated_src_batch)
         num_iters += 1
 
+    calculate_bleu_score(target_batches, predicted_batches)
     print("DONE")
+
+
+def calculate_bleu_score(target_batches: List[List[List[dict]]], predicted_batches: List[List[List[dict]]]):
+    batch_index = 0
+    for target_batch, predicted_batch in zip(target_batches, predicted_batches):
+        target_batch_extracted_token = PreTrainerUtils.extract_tokens(target_batch)
+        predicted_batch_extracted_token = PreTrainerUtils.extract_tokens(predicted_batch)
+
+        bleu_score = calculate_corpus_bleu_score(
+            target_batch_extracted_token,
+            predicted_batch_extracted_token,
+            bleu_weights=get_n_gram_weights(2),
+        )
+        print(f"BLEU Score of the {batch_index} th corpus is: {bleu_score}")
+        batch_index += 1
 
 
 class TestClPreTrainerInference(unittest.TestCase):

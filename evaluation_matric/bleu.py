@@ -69,6 +69,7 @@ class BleuTest(unittest.TestCase):
 
         bleu_score = calculate_sentence_bleu_score(reference_sentence, predicted_sentence, bleu_weights=get_n_gram_weights(2))
         print(f"BLEU Score of the sentence: {bleu_score}")
+        self.assertAlmostEqual(0.7801157731069053, bleu_score)
 
     def test_corpus_bleu_score_calculation(self):
         reference_corpus = [
@@ -82,6 +83,7 @@ class BleuTest(unittest.TestCase):
 
         bleu_score = calculate_corpus_bleu_score(reference_corpus, predicted_corpus, bleu_weights=get_n_gram_weights(2))
         print(f"BLEU Score of the corpus: {bleu_score}")
+        self.assertAlmostEqual(1, bleu_score)
 
 
 if __name__ == "__main__":

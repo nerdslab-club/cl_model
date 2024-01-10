@@ -1,7 +1,9 @@
 import torch
 from torch import Tensor, nn
 
-from cl_data.src.constants import Constants
+from cl_data.function_representation.src.functions_manager import FunctionManager
+from cl_data.function_representation.src.math_functions import MathFunctions
+from cl_data.src.constants import Constants, CategoryType, CategorySubSubType, FunctionPrefix
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 from vocabulary_builder.category_vocabulary_builder import OutputTokenClassificationHeadVocabItem
 from vocabulary_builder.output_vocabulary_builder import OutputVocabItem
@@ -224,18 +226,99 @@ class PreTrainerUtils:
             losses_map[index] = current_loss
         return losses_map
 
+    @staticmethod
+    def extract_tokens(batch_of_predicted_sentences: list[list[dict]]) -> list[list[str]]:
+        """
+        We will use the io_parser_output for calculating the BLEU score, so to extract the tokens for
+        that we will use this method.
+
+        :param batch_of_predicted_sentences:
+        :return: list of only the tokens of each sentences of the batch
+        """
+        batch_tokens = []
+
+        for io_parser_output in batch_of_predicted_sentences:
+            token_sequence = []
+            for io_parser_output_item in io_parser_output:
+                token: any = io_parser_output_item[Constants.TOKEN]
+                category_map: dict = io_parser_output_item[Constants.CATEGORY]
+                category_type: str = category_map[Constants.CATEGORY_TYPE]
+                category_sub_sub_type: str = category_map[Constants.CATEGORY_SUB_SUB_TYPE]
+
+                if category_type == CategoryType.FUNCTION.value:
+                    if category_sub_sub_type == CategorySubSubType.EXECUTE.value:
+                        token = FunctionPrefix.FUNCTION_IO_REPRESENT_R_EXECUTE.value + FunctionManager.get_name_of_function(token)
+                    elif category_sub_sub_type == CategorySubSubType.REPRESENT.value:
+                        token = FunctionPrefix.FUNCTION_IOR_REPRESENT.value + FunctionManager.get_name_of_function(token)
+                    else:
+                        token = FunctionPrefix.FUNCTION_IOR_PLACEHOLDER.value + FunctionManager.get_name_of_function(token)
+                else:
+                    token = str(token)
+                token_sequence.append(token)
+
+            batch_tokens.append(token_sequence)
+        return batch_tokens
+
+    @staticmethod
+    def wrap_item_with_list(tokens: list[list[str]]) -> list[list[list[str]]]:
+        token_output = [[sublist] for sublist in tokens]
+        return token_output
+
 
 if __name__ == "__main__":
-    embedding_length = 4
+    # embedding_length = 4
+    #
+    # # Create random tensors for x and mask_tensor
+    # mask_tensor = torch.tensor([[False, False, True, True, True], [False, False, False, True, False]])
+    # x = torch.randn(mask_tensor.size(0), mask_tensor.size(1), embedding_length, dtype=torch.float32)
+    #
+    # # Create a batch of encoder hidden states
+    # batch_encoder_hidden_states = [[torch.randn(10, embedding_length)],
+    #                                [torch.randn(10, embedding_length), torch.randn(10, embedding_length)]]
+    #
+    # output = PreTrainerUtils.create_function_param_token_infos(x, mask_tensor, batch_encoder_hidden_states,
+    #                                                            shift_right=True)
+    # print(output)
 
-    # Create random tensors for x and mask_tensor
-    mask_tensor = torch.tensor([[False, False, True, True, True], [False, False, False, True, False]])
-    x = torch.randn(mask_tensor.size(0), mask_tensor.size(1), embedding_length, dtype=torch.float32)
+    # Example input
+    data = [
+        [
+            {
+                "token": "<BOS>",
+                "category": {
+                    "type": "special",
+                    "subType": "word",
+                    "subSubType": "none"
+                },
+                "position": 0
+            },
+            {
+                "token": MathFunctions.addition,
+                "category": {
+                    "type": "function",
+                    "subType": "integer",
+                    "subSubType": "execute"
+                },
+                "position": 1
+            },
+            {
+                "token": 578,
+                "category": {
+                    "type": "integer",
+                    "subType": "default",
+                    "subSubType": "param_one"
+                },
+                "position": 2
+            },
+        ],
+        [
+            {'token': 'The', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 1},
+            {'token': 'quick', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 2},
+            {'token': 'brown', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 3},
+            {'token': 'fox', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 4},
+        ]
+    ]
 
-    # Create a batch of encoder hidden states
-    batch_encoder_hidden_states = [[torch.randn(10, embedding_length)],
-                                   [torch.randn(10, embedding_length), torch.randn(10, embedding_length)]]
-
-    output = PreTrainerUtils.create_function_param_token_infos(x, mask_tensor, batch_encoder_hidden_states,
-                                                               shift_right=True)
-    print(output)
+    # Output
+    result = PreTrainerUtils.extract_tokens(data)
+    print(result)
