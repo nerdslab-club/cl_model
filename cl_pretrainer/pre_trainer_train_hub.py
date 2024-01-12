@@ -148,6 +148,7 @@ def cl_pre_trainer_train(
                         )
                         print(f"Predicted token values for index: {index} is \n"
                               f"{current_head_predicted_output_token}")
+                print("\n")
 
             # Update parameters
             if is_training:
@@ -161,7 +162,7 @@ def cl_pre_trainer_train(
 
 
 class TestClPreTrainerTraining(unittest.TestCase):
-    PATH = "./saved_models/cl_pre_trainer_one.pth"
+    PATH = "./saved_models/cl_pre_trainer_generative.pth"
     accepted_loss_threshold = 0.90
     accepted_accuracy_threshold = 0.99
 
@@ -202,14 +203,14 @@ class TestClPreTrainerTraining(unittest.TestCase):
             category_vocab_builder.index_to_output_token_classification_head_vocab_item
         )
         output_vocabularies = output_vocab_builder.index_to_output_vocabularies
-        print(f"Output vocabularies count: {len(output_vocabularies.keys())}")
+        print(f"Output vocabularies count: {len(output_vocabularies.keys())}\n")
 
         # Creating the batch and masks
         batches, masks = BatchBuilder.construct_batches_for_cl_pre_trainer(
             sentences,
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
-            is_generative_training=False,
+            is_generative_training=True,
         )
         # Initializing the CL pre trainer
         cl_pre_trainer = ClPreTrainer(

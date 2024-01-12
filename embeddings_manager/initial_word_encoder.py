@@ -8,9 +8,9 @@ class InitialWordEncoder:
     def get_sentence_encoder_model(self):
         return self.sentence_model
 
-    def get_sentence_embedding(self, sentence: str, convert_to_tensor: bool):
+    def get_sentence_embedding(self, sentence: str, convert_to_tensor: bool, show_progress_bar: bool, device: str = None):
         sentence_embedding = self.sentence_model.encode(
-            sentence, show_progress_bar=True, convert_to_tensor=convert_to_tensor
+            sentence, show_progress_bar=show_progress_bar, convert_to_tensor=convert_to_tensor, device=device
         )
         return sentence_embedding
 

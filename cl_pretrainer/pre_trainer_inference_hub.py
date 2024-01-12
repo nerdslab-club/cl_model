@@ -101,6 +101,7 @@ def cl_pre_trainer_inference_hub(
                     OutputVocabBuilder.PREDICTED_TOKEN_KEY: current_head_predicted_output_token,
                     OutputVocabBuilder.INDEX: output_classification_head_index,
                 }
+            print("\n")
 
             # Removed the teacher forcing and added the prediction to the src batch
             predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output_hub(predicted_category_map,

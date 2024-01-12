@@ -294,10 +294,19 @@ class EmbeddingsManager:
             function_token_embedding,
         )
 
-    def get_token_embedding(self, token: any, category_type: str) -> Tensor:
+    def get_token_embedding(self,
+                            token: any,
+                            category_type: str,
+                            show_progress_bar: bool = False,
+                            device: str = None, ) -> Tensor:
         if category_type == CategoryType.FUNCTION.value:
             token = FunctionManager.get_doc_string_of_function(token)
-        return self.initial_word_encoder.get_sentence_embedding(str(token), True)
+        return self.initial_word_encoder.get_sentence_embedding(
+            str(token),
+            True,
+            show_progress_bar=show_progress_bar,
+            device=device
+        )
 
     def get_category_and_task_embedding(
             self,
