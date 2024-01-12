@@ -104,6 +104,7 @@ class BatchBuilder:
         """
         if is_generative_training:
             next_token_task_corpus = BatchBuilder.create_generative_training_samples(corpus)
+            print(f"Generative examples: {next_token_task_corpus}\n")
         else:
             next_token_task_corpus = [
                 {BatchBuilder.SOURCE_LANGUAGE_KEY: src, BatchBuilder.TARGET_LANGUAGE_KEY: tgt} for src, tgt in

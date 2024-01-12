@@ -29,6 +29,7 @@ def cl_pre_trainer_train(
         task_type: str,
         category_criterion: any,
         output_criterion_map: dict[int, any],
+        patience=5,
         start_epoch=0,
         is_training=True,
         verbose_log=False,
@@ -38,7 +39,13 @@ def cl_pre_trainer_train(
         n_epochs = 1
 
     num_iters = 0
-    for e in range(start_epoch, start_epoch + n_epochs):
+    best_accuracy = 0
+    best_loss = float('inf')
+    epochs_without_improvement = 0
+    execute_epoch = 40
+    for epoch in range(start_epoch, start_epoch + n_epochs):
+        total_accuracy = 0
+        total_loss = 0
         for i, (src_batch, padding_mask, tgt_batch, future_mask) in enumerate(
                 zip(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY],
                     masks[BatchBuilder.PADDING_MASK_KEY],
@@ -66,10 +73,13 @@ def cl_pre_trainer_train(
                 category_logits.contiguous().permute(0, 2, 1),
                 tgt_category_probability.contiguous().long(),
             )
+            total_loss += batch_category_loss
 
             # Rough estimate of per-token accuracy in the current training batch
             batch_category_accuracy = (torch.sum(
                 category_logits.argmax(dim=-1) == tgt_category_probability)) / torch.numel(tgt_category_probability)
+
+            total_accuracy += batch_category_accuracy
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             tgt_output_probability = output_vocab_builder.batch_encoder(tgt_batch, is_only_probability=False)
@@ -121,35 +131,23 @@ def cl_pre_trainer_train(
 
                 output_logits_item[CURRENT_BATCH_OUTPUT_LOSS] = current_batch_output_loss
                 output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY] = current_batch_output_accuracy
+                total_accuracy += current_batch_output_accuracy
+                total_loss += current_batch_output_loss
                 output_logits_map[index] = output_logits_item
 
-            if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0 or not is_training:
-                print(
-                    f"epoch: {e}, num_iters: {num_iters}, "
-                    f"batch_category_loss: {batch_category_loss}, batch_category_accuracy: {batch_category_accuracy}"
-                )
-                for index, output_logits_item in output_logits_map.items():
-                    output_loss = output_logits_item[CURRENT_BATCH_OUTPUT_LOSS]
-                    print(f"output loss for index: {index} is {output_loss}")
-                for index, output_logits_item in output_logits_map.items():
-                    output_accuracy = output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY]
-                    print(f"output accuracy for index: {index} is {output_accuracy}")
-
-                if verbose_log:
-                    predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
-                    print(f"Predicted category probability values:"
-                          f" {predicted_category_map}")
-
-                    for index, output_logits_item in output_logits_map.items():
-                        current_head_output_probability = output_logits_item[CategoryRouter.OUTPUT_PROBABILITY]
-                        current_head_output_probability = current_head_output_probability[:, :-1]
-                        current_head_predicted_output_token = output_vocab_builder.batch_decode_for_training(
-                            index,
-                            current_head_output_probability.tolist(),
-                        )
-                        print(f"Predicted token values for index: {index} is \n"
-                              f"{current_head_predicted_output_token}")
-                print("\n")
+            print_model_training_status(
+                batch_category_accuracy,
+                batch_category_loss,
+                batches,
+                category_probability,
+                category_vocab_builder,
+                epoch,
+                is_training,
+                num_iters,
+                output_logits_map,
+                output_vocab_builder,
+                verbose_log,
+            )
 
             # Update parameters
             if is_training:
@@ -159,11 +157,85 @@ def cl_pre_trainer_train(
                 scheduler.step()
                 scheduler.optimizer.zero_grad()
             num_iters += 1
-    return batch_category_loss, batch_category_accuracy, output_logits_map
+            # batch
+
+        # Saving the best model ...
+        best_accuracy = save_best_model(best_accuracy, epoch, model, scheduler, total_accuracy)
+
+        # Applying early stopping using the total loss ...
+        if total_loss < best_loss:
+            best_loss = total_loss
+            epochs_without_improvement = 0
+        else:
+            epochs_without_improvement += 1
+        if epochs_without_improvement >= patience:
+            print(f"Early stopping after {epoch + 1} epochs with no improvement.")
+            execute_epoch = epoch + 1
+            break
+        # epoch
+    # function
+    print(f"Best accuracy found: {best_accuracy}")
+    return batch_category_loss, batch_category_accuracy, output_logits_map, execute_epoch
+
+
+def save_best_model(best_accuracy, epoch, model, scheduler, total_accuracy):
+    if total_accuracy > best_accuracy and epoch > 15:
+        best_accuracy = total_accuracy
+        # Saving the best model
+        ClPreTrainerCheckPointManager.save_checkpoint_map(
+            path=TestClPreTrainerTraining.BEST_PATH,
+            epoch=epoch + 1,
+            model=model,
+            optimizer=scheduler.optimizer,
+        )
+        print(f"Saved best model at epoch: {epoch + 1}")
+    return best_accuracy
+
+
+def print_model_training_status(
+        batch_category_accuracy,
+        batch_category_loss,
+        batches,
+        category_probability,
+        category_vocab_builder,
+        e,
+        is_training,
+        num_iters,
+        output_logits_map,
+        output_vocab_builder,
+        verbose_log):
+    if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0 or not is_training:
+        print(
+            f"epoch: {e}, num_iters: {num_iters}, "
+            f"batch_category_loss: {batch_category_loss}, batch_category_accuracy: {batch_category_accuracy}"
+        )
+        for index, output_logits_item in output_logits_map.items():
+            output_loss = output_logits_item[CURRENT_BATCH_OUTPUT_LOSS]
+            print(f"output loss for index: {index} is {output_loss}")
+        for index, output_logits_item in output_logits_map.items():
+            output_accuracy = output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY]
+            print(f"output accuracy for index: {index} is {output_accuracy}")
+
+        if verbose_log:
+            predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
+            print(f"Predicted category probability values:"
+                  f" {predicted_category_map}")
+
+            for index, output_logits_item in output_logits_map.items():
+                current_head_output_probability = output_logits_item[CategoryRouter.OUTPUT_PROBABILITY]
+                current_head_output_probability = current_head_output_probability[:, :-1]
+                current_head_predicted_output_token = output_vocab_builder.batch_decode_for_training(
+                    index,
+                    current_head_output_probability.tolist(),
+                )
+                print(f"Predicted token values for index: {index} is \n"
+                      f"{current_head_predicted_output_token}")
+        print("\n")
 
 
 class TestClPreTrainerTraining(unittest.TestCase):
-    PATH = "./saved_models/cl_pre_trainer_generative.pth"
+    PATH = "./saved_models/cl_pre_trainer_generative_last.pth"
+    BEST_PATH = "./saved_models/cl_pre_trainer_generative_best.pth"
     accepted_loss_threshold = 0.90
     accepted_accuracy_threshold = 0.99
 
@@ -183,9 +255,9 @@ class TestClPreTrainerTraining(unittest.TestCase):
         # Creating the vocabulary corpus
         sentences = [
             "Quick brown fox jumps over the lazy dog in the meadow",
-            "Adding 3 plus 2 equals ##addition(3,2)",
-            "Each children will receive ##division(9,3) candies",
-            "The result of subtracting 1 from 5 is ##subtraction(5,1)",
+            "Computed result of calculating the area of a circle with radius 3 = ##circle_area(3)",
+            "If you share 9 candies among 3 friends, each would get ##division(9,3) candies",
+            "Imagine having 10 apples and gaining 5 more. You would then have ##addition(10,5) apples",
         ]
         corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, max_decoding_length)
         # Initialize category vocabulary builder instance
@@ -213,6 +285,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             max_decoder_sequence_length=max_decoding_length,
             is_generative_training=True,
         )
+        print(f"Number of batch available is: {len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY])}\n")
         # Initializing the CL pre trainer
         cl_pre_trainer = ClPreTrainer(
             batch_size=batch_size,
@@ -245,7 +318,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
         )
 
         # Start training and verify ~zero loss and >90% accuracy on the last batch
-        latest_batch_loss, latest_batch_accuracy, output_logits_map = cl_pre_trainer_train(
+        latest_batch_loss, latest_batch_accuracy, output_logits_map, execute_epoch = cl_pre_trainer_train(
             model=cl_pre_trainer,
             category_vocab_builder=category_vocab_builder,
             output_vocab_builder=output_vocab_builder,
@@ -258,6 +331,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             verbose_log=True,
             category_criterion=category_criterion,
             output_criterion_map=output_criterion_map,
+            patience=15,
         )
 
         # Saving the model...
@@ -347,7 +421,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
 
         # Load the model...
         checkpoint_map = ClPreTrainerCheckPointManager.load_checkpoint_map(
-            TestClPreTrainerTraining.PATH
+            TestClPreTrainerTraining.BEST_PATH
         )
         # Load CL-Pre-Trainer states
         cl_pre_trainer.load_saved_model_from_state_dict(

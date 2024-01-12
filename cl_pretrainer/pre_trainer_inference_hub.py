@@ -177,9 +177,9 @@ class TestClPreTrainerInference(unittest.TestCase):
 
         sentences = [
             "Quick brown fox jumps over the lazy dog in the meadow",
-            "Adding 3 plus 2 equals ##addition(3,2)",
-            "Each children will receive ##division(9,3) candies",
-            "The result of subtracting 1 from 5 is ##subtraction(5,1)",
+            "Computed result of calculating the area of a circle with radius 3 = ##circle_area(3)",
+            "If you share 9 candies among 3 friends, each would get ##division(9,3) candies",
+            "Imagine having 10 apples and gaining 5 more. You would then have ##addition(10,5) apples",
         ]
         corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, max_decoding_length)
 
