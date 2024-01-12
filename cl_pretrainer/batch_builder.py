@@ -175,12 +175,12 @@ class BatchBuilder:
         for sentence in corpus:
             words = sentence.split()
 
-            for i in range(len(words) - 3):
+            for i in range(len(words) - 6):
                 # Input sequence: 1-3 words
-                input_sequence = " ".join(words[0: i + 3])
+                input_sequence = " ".join(words[0: i + 6])
 
                 # Output sequence: 1-4 words
-                output_sequence = " ".join(words[0: i + 4])
+                output_sequence = " ".join(words[0: i + 7])
 
                 # Add the sample to the list
                 sample = {
@@ -297,14 +297,16 @@ class TestUtils(unittest.TestCase):
 
     def test_create_generative_training_samples(self):
         corpus = [
-            "one two three four five six seven",
+            "one two three four five six seven eight nine ten eleven twelve",
         ]
         generative_samples = BatchBuilder.create_generative_training_samples(corpus)
         expected_result = [
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four"},
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five"},
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six"},
             {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven"},
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six seven", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven eight"},
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six seven eight", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven eight nine"},
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six seven eight nine", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven eight nine ten"},
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six seven eight nine ten", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven eight nine ten eleven"},
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six seven eight nine ten eleven", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven eight nine ten eleven twelve"},
         ]
         self.assertEqual(generative_samples, expected_result)
 

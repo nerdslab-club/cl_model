@@ -176,7 +176,7 @@ class TestClPreTrainerInference(unittest.TestCase):
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         sentences = [
-            "The quick brown fox jumps over the lazy dog in the meadow",
+            "Quick brown fox jumps over the lazy dog in the meadow",
             "Adding 3 plus 2 equals ##addition(3,2)",
             "Each children will receive ##division(9,3) candies",
             "The result of subtracting 1 from 5 is ##subtraction(5,1)",

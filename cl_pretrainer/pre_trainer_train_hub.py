@@ -130,9 +130,10 @@ def cl_pre_trainer_train(
                 )
                 for index, output_logits_item in output_logits_map.items():
                     output_loss = output_logits_item[CURRENT_BATCH_OUTPUT_LOSS]
+                    print(f"output loss for index: {index} is {output_loss}")
+                for index, output_logits_item in output_logits_map.items():
                     output_accuracy = output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY]
-                    print(f"output loss for index: {index} is {output_loss}\n"
-                          f"output accuracy for index: {index} is {output_accuracy}")
+                    print(f"output accuracy for index: {index} is {output_accuracy}")
 
                 if verbose_log:
                     predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
@@ -181,7 +182,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
 
         # Creating the vocabulary corpus
         sentences = [
-            "The quick brown fox jumps over the lazy dog in the meadow",
+            "Quick brown fox jumps over the lazy dog in the meadow",
             "Adding 3 plus 2 equals ##addition(3,2)",
             "Each children will receive ##division(9,3) candies",
             "The result of subtracting 1 from 5 is ##subtraction(5,1)",
