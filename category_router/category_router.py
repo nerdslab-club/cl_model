@@ -17,6 +17,7 @@ class CategoryRouter(nn.Module):
     ROUTE_CLASSIFICATION_HEAD = "route_classification_head"
     OUTPUT_LOGITS = "output_logits"
     OUTPUT_PROBABILITY = "output_probability"
+    SOFTMAX_PROBABILITY = "softmax_probability"
 
     def __init__(
             self,
@@ -68,6 +69,7 @@ class CategoryRouter(nn.Module):
                 output_logits_map[index] = {
                     CategoryRouter.OUTPUT_LOGITS: current_logits,
                     CategoryRouter.OUTPUT_PROBABILITY: current_output_probability,
+                    CategoryRouter.SOFTMAX_PROBABILITY: torch.nn.functional.softmax(current_logits, dim=-1)
                 }
             return output_logits_map
 
