@@ -33,6 +33,7 @@ def cl_pre_trainer_train(
         start_epoch=0,
         is_training=True,
         verbose_log=False,
+        only_language_training=0,
 ):
     model.train(is_training)
     if not is_training:
@@ -108,7 +109,7 @@ def cl_pre_trainer_train(
             combined_output_losses = []
             # Calculate output loss & accuracy for each classification head
             for index, output_logits_item in output_logits_map.items():
-                if epoch > 40 or index == 1:
+                if epoch >= only_language_training or index == 1:
                     current_tgt_output_probability = PreTrainerUtils.create_tgt_tensor_for_output_classification_head(
                         output_classification_head_index=index,
                         tgt_batch_probability=tgt_output_probability,
@@ -312,7 +313,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
         scheduler = NoamOpt(
             cl_pre_trainer.hidden_dim,
             factor=1,
-            warmup=4000,
+            warmup=400,
             optimizer=optimizer,
         )
 
@@ -473,7 +474,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
         )
 
         # Start training and verify ~zero loss and >90% accuracy on the last batch
-        latest_batch_loss, latest_batch_accuracy, output_logits_map = cl_pre_trainer_train(
+        latest_batch_loss, latest_batch_accuracy, output_logits_map, execute_epoch = cl_pre_trainer_train(
             model=cl_pre_trainer,
             category_vocab_builder=category_vocab_builder,
             output_vocab_builder=output_vocab_builder,

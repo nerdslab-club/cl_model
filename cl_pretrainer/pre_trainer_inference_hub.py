@@ -39,7 +39,7 @@ def cl_pre_trainer_inference_hub(
                 masks[BatchBuilder.FUTURE_MASK_KEY])
     ):
         # Initially we need at least 4 words for predicting the next word
-        current_sequence_length = 4
+        current_sequence_length = 6
         truncated_src_batch = [sequence_list[:current_sequence_length] for sequence_list in src_batch]
         truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length)
 
@@ -56,8 +56,8 @@ def cl_pre_trainer_inference_hub(
 
             category_probability, category_logits = model.category_map_classification_head.forward(e_one)
             predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
-            # print(f"Predicted category probability values:"
-            #       f" {predicted_category_map}")
+            print(f"Predicted category probability values:"
+                  f" {predicted_category_map}")
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             e_two = model.output_token_decoder.forward(
