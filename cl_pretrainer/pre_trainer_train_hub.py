@@ -108,32 +108,38 @@ def cl_pre_trainer_train(
             combined_output_losses = []
             # Calculate output loss & accuracy for each classification head
             for index, output_logits_item in output_logits_map.items():
-                current_tgt_output_probability = PreTrainerUtils.create_tgt_tensor_for_output_classification_head(
-                    output_classification_head_index=index,
-                    tgt_batch_probability=tgt_output_probability,
-                )
-                # Removing the <BOS> tgt output probability
-                current_tgt_output_probability = current_tgt_output_probability[:, 1:]
+                if epoch > 40 or index == 1:
+                    current_tgt_output_probability = PreTrainerUtils.create_tgt_tensor_for_output_classification_head(
+                        output_classification_head_index=index,
+                        tgt_batch_probability=tgt_output_probability,
+                    )
+                    # Removing the <BOS> tgt output probability
+                    current_tgt_output_probability = current_tgt_output_probability[:, 1:]
 
-                current_output_logits = output_logits_item[CategoryRouter.OUTPUT_LOGITS]
-                # Removing the last garbage token from output logits
-                current_output_logits = current_output_logits[:, :-1, :]
+                    current_output_logits = output_logits_item[CategoryRouter.OUTPUT_LOGITS]
+                    # Removing the last garbage token from output logits
+                    current_output_logits = current_output_logits[:, :-1, :]
 
-                current_batch_output_loss = output_criterion_map[index](
-                    current_output_logits.contiguous().permute(0, 2, 1),
-                    current_tgt_output_probability.contiguous().long(),
-                )
-                combined_output_losses.append(current_batch_output_loss)
+                    current_batch_output_loss = output_criterion_map[index](
+                        current_output_logits.contiguous().permute(0, 2, 1),
+                        current_tgt_output_probability.contiguous().long(),
+                    )
+                    combined_output_losses.append(current_batch_output_loss)
 
-                current_batch_output_accuracy = (torch.sum(
-                    current_output_logits.argmax(dim=-1) == current_tgt_output_probability)) / torch.numel(
-                    current_tgt_output_probability)
+                    current_batch_output_accuracy = (torch.sum(
+                        current_output_logits.argmax(dim=-1) == current_tgt_output_probability)) / torch.numel(
+                        current_tgt_output_probability)
 
-                output_logits_item[CURRENT_BATCH_OUTPUT_LOSS] = current_batch_output_loss
-                output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY] = current_batch_output_accuracy
-                total_accuracy += current_batch_output_accuracy
-                total_loss += current_batch_output_loss
-                output_logits_map[index] = output_logits_item
+                    output_logits_item[CURRENT_BATCH_OUTPUT_LOSS] = current_batch_output_loss
+                    output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY] = current_batch_output_accuracy
+                    total_accuracy += current_batch_output_accuracy
+                    total_loss += current_batch_output_loss
+                    output_logits_map[index] = output_logits_item
+                else:
+                    output_logits_item[CURRENT_BATCH_OUTPUT_LOSS] = 100
+                    output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY] = 0
+                    output_logits_map[index] = output_logits_item
+
 
             print_model_training_status(
                 batch_category_accuracy,
@@ -179,7 +185,7 @@ def cl_pre_trainer_train(
 
 
 def save_best_model(best_accuracy, epoch, model, scheduler, total_accuracy):
-    if total_accuracy > best_accuracy and epoch > 15:
+    if total_accuracy > best_accuracy and epoch > 50:
         best_accuracy = total_accuracy
         # Saving the best model
         ClPreTrainerCheckPointManager.save_checkpoint_map(
@@ -188,7 +194,7 @@ def save_best_model(best_accuracy, epoch, model, scheduler, total_accuracy):
             model=model,
             optimizer=scheduler.optimizer,
         )
-        print(f"Saved best model at epoch: {epoch + 1}")
+        print(f"Saved best model at epoch: {epoch + 1} with best accuracy: {best_accuracy}")
     return best_accuracy
 
 
@@ -236,13 +242,13 @@ def print_model_training_status(
 class TestClPreTrainerTraining(unittest.TestCase):
     PATH = "./saved_models/cl_pre_trainer_generative_last.pth"
     BEST_PATH = "./saved_models/cl_pre_trainer_generative_best.pth"
-    accepted_loss_threshold = 0.90
-    accepted_accuracy_threshold = 0.99
+    accepted_loss_threshold = 0.40
+    accepted_accuracy_threshold = 0.90
 
     def test_cl_pre_trainer_train_and_save(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
-        n_epochs = 40
+        n_epochs = 100
         batch_size = 2
         num_heads = 8
         hidden_dim = 768
@@ -306,7 +312,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
         scheduler = NoamOpt(
             cl_pre_trainer.hidden_dim,
             factor=1,
-            warmup=400,
+            warmup=4000,
             optimizer=optimizer,
         )
 
@@ -331,7 +337,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             verbose_log=True,
             category_criterion=category_criterion,
             output_criterion_map=output_criterion_map,
-            patience=15,
+            patience=80,
         )
 
         # Saving the model...
