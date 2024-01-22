@@ -3,14 +3,14 @@ import unittest
 from cl_data.func_func.f2f_sample_generator import F2FSamples
 from cl_data.func_nl.f2n_sample_generator import F2NSamples
 from cl_data.nl_func.n2f_sample_generator import N2FSamples
-from cl_data.nlf_nlf.nlf2nlf_sample_generator import NlToNlSamples
+from cl_data.nlf_nlf.nlf2nlf_sample_generator import Nl2NlSamples
 from cl_data.src.random_value_generator import RandomValueGenerator
 
 
 class DataGenerator:
     def __init__(self):
         self.available_generator: list = [
-            NlToNlSamples(),
+            Nl2NlSamples(),
             F2FSamples(),
             F2NSamples(),
             N2FSamples()
@@ -41,8 +41,8 @@ class DataGenerator:
                 random_index = task_generator_index
             else:
                 random_index = RandomValueGenerator.generate_random_integer(0, 4)
-            current_sample_generator = self.available_generator[random_index]
-            samples_from_this_generator = current_sample_generator.get_next_random_sample(
+            current_task_sample_generator = self.available_generator[random_index]
+            samples_from_this_generator = current_task_sample_generator.get_next_random_sample(
                 count // 4,
                 generator_index,
                 identifier,
