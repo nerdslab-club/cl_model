@@ -12,8 +12,8 @@ from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.cl_pre_trainer import ClPreTrainer
 from cl_pretrainer.pre_trainer_checkpoint_manager import ClPreTrainerCheckPointManager
 from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
-from evaluation_matric.bleu import get_n_gram_weights, calculate_corpus_bleu_score
-from evaluation_matric.perplexity import get_target_tokens_probability, calculate_batch_perplexity
+from evaluation_metric.bleu import get_n_gram_weights, calculate_corpus_bleu_score
+from evaluation_metric.perplexity import get_target_tokens_probability, calculate_batch_perplexity
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
@@ -41,76 +41,80 @@ def cl_pre_trainer_inference_hub(
         # Initially we need at least 4 words for predicting the next word
         current_sequence_length = 6
         truncated_src_batch = [sequence_list[:current_sequence_length] for sequence_list in src_batch]
-        truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length)
+        # truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length)
 
         output_logits_map = {}
         # range will be max_decoding_length - current_sequence_length
         # (We can add +1 but that will produce the garbage token)
         for index in range(max_decoding_length - current_sequence_length):
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~ Compute category probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            e_one = model.category_map_decoder.forward(
-                batch_io_parser_output=truncated_src_batch,
-                task_type=task_type,
-                future_mask=truncated_future_mask,
-            )
-
-            category_probability, category_logits = model.category_map_classification_head.forward(e_one)
-            predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
-            print(f"Predicted category probability values:"
-                  f" {predicted_category_map}")
-
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            e_two = model.output_token_decoder.forward(
-                batch_io_parser_output=truncated_src_batch,
-                task_type=task_type,
-                future_mask=truncated_future_mask,
-            )
-
-            predicted_io_parser_output_without_token = PreTrainerUtils.convert_category_map_into_io_parser_output_without_token(
-                batch_category_map=predicted_category_map,
-            )
-            batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
-                batch_io_parser_output=predicted_io_parser_output_without_token,
-            )
-            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  is_hub=True ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            # SO WE ARE ALSO USING output_vocab_builder.batch_decode_for_training
-            output_logits_map = model.category_router.forward(
-                e_two=e_two,
-                batch_route_ids=batch_route_ids,
-                is_hub=True,
-            )
-
-            predicted_tokens_map = {}
-            for output_classification_head_index, output_logits_item in output_logits_map.items():
-                current_head_output_probability = output_logits_item[CategoryRouter.OUTPUT_PROBABILITY]
-                # current_head_output_probability = current_head_output_probability[:, :-1]
-                current_head_predicted_output_token = output_vocab_builder.batch_decode_for_training(
-                    output_classification_head_index,
-                    current_head_output_probability.tolist(),
+            try:
+                # ~~~~~~~~~~~~~~~~~~~~~~~~~ Compute category probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                e_one = model.category_map_decoder.forward(
+                    batch_io_parser_output=truncated_src_batch,
+                    task_type=task_type,
+                    # future_mask=truncated_future_mask,
                 )
-                print(f"Predicted token values for index: {output_classification_head_index} is \n"
-                      f"{current_head_predicted_output_token}")
 
-                # Get the output token classification vocab item from index
-                current_output_token_classification_head_vocab_item = \
-                    output_vocab_builder.index_to_output_vocabularies[output_classification_head_index][
-                        OutputVocabBuilder.OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM]
+                category_probability, category_logits = model.category_map_classification_head.forward(e_one)
+                predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
+                print(f"Predicted category probability values:"
+                      f" {predicted_category_map}")
 
-                # Add item to predicted tokens map using the output token classification head vocab item as key
-                predicted_tokens_map[current_output_token_classification_head_vocab_item] = {
-                    OutputVocabBuilder.PREDICTED_TOKEN_KEY: current_head_predicted_output_token,
-                    OutputVocabBuilder.INDEX: output_classification_head_index,
-                }
-            print("\n")
+                # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                e_two = model.output_token_decoder.forward(
+                    batch_io_parser_output=truncated_src_batch,
+                    task_type=task_type,
+                    # future_mask=truncated_future_mask,
+                )
 
-            # Removed the teacher forcing and added the prediction to the src batch
-            predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output_hub(predicted_category_map,
-                                                                                       predicted_tokens_map,
-                                                                                       start_from=1)
+                predicted_io_parser_output_without_token = PreTrainerUtils.convert_category_map_into_io_parser_output_without_token(
+                    batch_category_map=predicted_category_map,
+                )
+                batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
+                    batch_io_parser_output=predicted_io_parser_output_without_token,
+                )
+                # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  is_hub=True ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                # SO WE ARE ALSO USING output_vocab_builder.batch_decode_for_training
+                output_logits_map = model.category_router.forward(
+                    e_two=e_two,
+                    batch_route_ids=batch_route_ids,
+                    is_hub=True,
+                )
 
-            truncated_src_batch = PreTrainerUtils.add_prediction_to_truncated_list(predicted_io_parser_output,
-                                                                                   truncated_src_batch)
-            truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length + index + 1)
+                predicted_tokens_map = {}
+                for output_classification_head_index, output_logits_item in output_logits_map.items():
+                    current_head_output_probability = output_logits_item[CategoryRouter.OUTPUT_PROBABILITY]
+                    # current_head_output_probability = current_head_output_probability[:, :-1]
+                    current_head_predicted_output_token = output_vocab_builder.batch_decode_for_training(
+                        output_classification_head_index,
+                        current_head_output_probability.tolist(),
+                    )
+                    print(f"Predicted token values for index: {output_classification_head_index} is \n"
+                          f"{current_head_predicted_output_token}")
+
+                    # Get the output token classification vocab item from index
+                    current_output_token_classification_head_vocab_item = \
+                        output_vocab_builder.index_to_output_vocabularies[output_classification_head_index][
+                            OutputVocabBuilder.OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM]
+
+                    # Add item to predicted tokens map using the output token classification head vocab item as key
+                    predicted_tokens_map[current_output_token_classification_head_vocab_item] = {
+                        OutputVocabBuilder.PREDICTED_TOKEN_KEY: current_head_predicted_output_token,
+                        OutputVocabBuilder.INDEX: output_classification_head_index,
+                    }
+                print("\n")
+
+                # Removed the teacher forcing and added the prediction to the src batch
+                predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output_hub(predicted_category_map,
+                                                                                           predicted_tokens_map,
+                                                                                           start_from=1)
+
+                truncated_src_batch = PreTrainerUtils.add_prediction_to_truncated_list(predicted_io_parser_output,
+                                                                                       truncated_src_batch)
+                # truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length + index + 1)
+
+            except Exception as e:
+                print(f"An error occurred for batch: {i} word: {index} error: {e}")
 
         # Removing <BOS> from both tgt and predicted sentences
         tgt_batch = [sequence_list[1:] for sequence_list in tgt_batch]
@@ -176,10 +180,10 @@ class TestClPreTrainerInference(unittest.TestCase):
         task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
         sentences = [
-            "Quick brown fox jumps over the lazy dog in the meadow",
-            "Computed result of calculating the area of a circle with radius 3 = ##circle_area(3)",
-            "If you share 9 candies among 3 friends, each would get ##division(9,3) candies",
-            "Imagine having 10 apples and gaining 5 more. You would then have ##addition(10,5) apples",
+            "The quick brown fox jumps over the lazy dog in the meadow",
+            "Adding 3 plus 2 equals ##addition(3,2)",
+            "Each children will receive ##division(9,3) candies",
+            "The result of subtracting 1 from 5 is ##subtraction(5,1)",
         ]
         corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, max_decoding_length)
 

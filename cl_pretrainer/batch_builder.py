@@ -59,8 +59,7 @@ class BatchBuilder:
         return batch_io_parser_output
 
     @staticmethod
-    def get_sentence_io_parser_output(sentence: str, add_bos_and_eos: bool, max_sequence_length: int | None) -> list[
-        dict]:
+    def get_sentence_io_parser_output(sentence: str, add_bos_and_eos: bool, max_sequence_length: int | None) -> list[dict]:
         """Given a sentence it called io parser on the sentence with special tokens and paddings
 
         :param sentence: A normal sentence string.

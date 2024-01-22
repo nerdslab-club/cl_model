@@ -347,9 +347,15 @@ class EmbeddingsManager:
 
     def get_function_token_embedding(self, token: any, category_type) -> Tensor | None:
         if EmbeddingsManager.is_function_token(category_type):
-            return self.initial_function_encoder.get_perfect_function_signature_token_embedding(
-                token
-            )
+            try:
+                if token == Constants.NOT_MY_TOKEN:
+                    token = FunctionManager().get_name_to_reference().get(token)
+                return self.initial_function_encoder.get_perfect_function_signature_token_embedding(
+                    token
+                )
+            except Exception as e:
+                print(f"An unexpected error occurred: {e}")
+                print(f"Wrong token is: {token}")
         else:
             return None
 
