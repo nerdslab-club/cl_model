@@ -1,4 +1,4 @@
 [submodule "cl_data"]
 	path = cl_data
 	url = https://github.com/nerdslab-club/cl_data.git
-	ref = main
+	branch = cl_model_main
