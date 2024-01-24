@@ -14,6 +14,7 @@ from cl_pretrainer.pre_trainer_checkpoint_manager import ClPreTrainerCheckPointM
 from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
 from evaluation_metric.bleu import get_n_gram_weights, calculate_corpus_bleu_score
 from evaluation_metric.perplexity import get_target_tokens_probability, calculate_batch_perplexity
+from response_parser.response_parser import ResponseParser
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
@@ -128,7 +129,14 @@ def cl_pre_trainer_inference_hub(
 
     calculate_bleu_score(target_batches, predicted_batches)
     calculate_perplexity_score(target_batches, output_logits_map_batches, output_vocab_builder)
+    print_response(predicted_batches)
     print("DONE")
+
+
+def print_response(predicted_batches: List[List[List[dict]]]):
+    for index, batch in enumerate(predicted_batches):
+        parsed_response_list = ResponseParser.parse_corpus_io_parser_output(batch)
+        print(f"For batch: {index}\n Parser response list is: {parsed_response_list} ")
 
 
 def calculate_perplexity_score(
