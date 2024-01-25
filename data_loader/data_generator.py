@@ -19,9 +19,9 @@ class DataGenerator:
     def generate_batch_of(
             self,
             count: int,
-            task_generator_index: int | None,
-            generator_index: int | None,
-            identifier: int | None) -> list[dict]:
+            task_generator_index: int | None = None,
+            generator_index: int | None = None,
+            identifier: int | None = None) -> list[dict]:
         """
         This function generate samples for training either randomly or in a paginated way if task_generator_index,
         generator_index and identifier is provided
@@ -55,7 +55,7 @@ class DataGeneratorTest(unittest.TestCase):
 
     def test_generate_batch_of(self):
         data_generator = DataGenerator()
-        generated_batch = data_generator.generate_batch_of(12);
+        generated_batch = data_generator.generate_batch_of(12)
         print(generated_batch)
         self.assertEqual(len(generated_batch), 12)
 
