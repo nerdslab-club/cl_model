@@ -1,3 +1,5 @@
+import types
+
 import torch
 from torch import Tensor, nn
 
@@ -246,12 +248,20 @@ class PreTrainerUtils:
                 category_sub_sub_type: str = category_map[Constants.CATEGORY_SUB_SUB_TYPE]
 
                 if category_type == CategoryType.FUNCTION.value:
-                    if category_sub_sub_type == CategorySubSubType.EXECUTE.value:
-                        token = FunctionPrefix.FUNCTION_IO_REPRESENT_R_EXECUTE.value + FunctionManager.get_name_of_function(token)
-                    elif category_sub_sub_type == CategorySubSubType.REPRESENT.value:
-                        token = FunctionPrefix.FUNCTION_IOR_REPRESENT.value + FunctionManager.get_name_of_function(token)
-                    else:
-                        token = FunctionPrefix.FUNCTION_IOR_PLACEHOLDER.value + FunctionManager.get_name_of_function(token)
+                    try:
+                        if not isinstance(token, types.FunctionType):
+                            print(f"PreTrainerUtils the converted type of token is {type(token)} with value {token}")
+                            token = FunctionManager().get_name_to_reference().get("nOtMyToKeN")
+                        if category_sub_sub_type == CategorySubSubType.EXECUTE.value:
+                            token = FunctionPrefix.FUNCTION_IO_REPRESENT_R_EXECUTE.value + FunctionManager.get_name_of_function(token)
+                        elif category_sub_sub_type == CategorySubSubType.REPRESENT.value:
+                            token = FunctionPrefix.FUNCTION_IOR_REPRESENT.value + FunctionManager.get_name_of_function(token)
+                        else:
+                            token = FunctionPrefix.FUNCTION_IOR_PLACEHOLDER.value + FunctionManager.get_name_of_function(token)
+                    except Exception as e:
+                        print(f"An unexpected error occurred in pre_trainer_utils extract_tokens function: {e}")
+                        print(f"Wrong token is: {token}")
+
                 else:
                     token = str(token)
                 token_sequence.append(token)

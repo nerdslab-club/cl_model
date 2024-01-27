@@ -1,3 +1,4 @@
+import types
 import unittest
 from typing import Tuple, List
 
@@ -117,10 +118,18 @@ class ResponseParser:
                 params_to_pass = [item[Constants.TOKEN] for item in params_io_parser_output]
 
                 if function_action == CategorySubSubType.EXECUTE.value:
-                    result = current_function_to_execute(*params_to_pass)
+                    if not isinstance(current_function_to_execute, types.FunctionType):
+                        print(f"ResponseParser the converted type of token is {type(current_function_to_execute)} with value {current_function_to_execute}")
+                        current_function_to_execute = FunctionManager().get_name_to_reference().get("nOtMyToKeN")
+                        result = current_function_to_execute()
+                    else:
+                        result = current_function_to_execute(*params_to_pass)
                 # function_action == CategorySubSubType.REPRESENT.value
                 # function_action == CategorySubSubType.PLACEHOLDER.value
                 else:
+                    if not isinstance(current_function_to_execute, types.FunctionType):
+                        print(f"ResponseParser the converted type of token is {type(current_function_to_execute)} with value {current_function_to_execute}")
+                        current_function_to_execute = FunctionManager().get_name_to_reference().get("nOtMyToKeN")
                     name_of_function = FunctionManager.get_name_of_function(current_function_to_execute)
                     comma_separated_params = ', '.join(str(item) for item in params_to_pass)
                     result = f"{name_of_function}({comma_separated_params})"

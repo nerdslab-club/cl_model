@@ -126,6 +126,7 @@ def cl_pre_trainer_inference_hub(
         predicted_batches.append(truncated_src_batch)
         output_logits_map_batches.append(output_logits_map)
         num_iters += 1
+        # break
 
     calculate_bleu_score(target_batches, predicted_batches)
     calculate_perplexity_score(target_batches, output_logits_map_batches, output_vocab_builder)

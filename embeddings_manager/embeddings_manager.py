@@ -1,3 +1,5 @@
+import types
+
 import torch
 from torch import Tensor
 
@@ -348,13 +350,14 @@ class EmbeddingsManager:
     def get_function_token_embedding(self, token: any, category_type) -> Tensor | None:
         if EmbeddingsManager.is_function_token(category_type):
             try:
-                if token == Constants.NOT_MY_TOKEN:
-                    token = FunctionManager().get_name_to_reference().get(token)
+                if not isinstance(token, types.FunctionType):
+                    print(f"EmbeddingsManager the converted type of token is {type(token)} with value {token}")
+                    token = FunctionManager().get_name_to_reference().get("nOtMyToKeN")
                 return self.initial_function_encoder.get_perfect_function_signature_token_embedding(
                     token
                 )
             except Exception as e:
-                print(f"An unexpected error occurred: {e}")
+                print(f"An unexpected error occurred in embedding manager module get_function_token_embedding function: {e}")
                 print(f"Wrong token is: {token}")
         else:
             return None
