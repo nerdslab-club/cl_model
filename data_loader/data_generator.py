@@ -34,20 +34,19 @@ class DataGenerator:
                but for a specific number same example will be retrieved each time.
         :return: The sample with the task type in a map.
         """
-        assert count % 4 == 0, "Count must be divisible by four..."
         samples = []
-        for i in range(0, 4):
-            if task_generator_index is not None:
-                random_index = task_generator_index
-            else:
-                random_index = RandomValueGenerator.generate_random_integer(0, 4)
-            current_task_sample_generator = self.available_generator[random_index]
-            samples_from_this_generator = current_task_sample_generator.get_next_random_sample(
-                count // 4,
-                generator_index,
-                identifier,
-            )
-            samples.extend(samples_from_this_generator)
+        if task_generator_index is not None:
+            random_index = task_generator_index
+        else:
+            random_index = RandomValueGenerator.generate_random_integer(0, 4)
+
+        current_task_sample_generator = self.available_generator[random_index]
+        samples_from_this_generator = current_task_sample_generator.get_next_random_sample(
+            count,
+            generator_index,
+            identifier,
+        )
+        samples.extend(samples_from_this_generator)
         return samples
 
 
