@@ -126,7 +126,7 @@ class DataLoaderTest(unittest.TestCase):
             identifier=0,
             shuffle=True,
         )
-        self.assertEqual(len(result), 6000)
+        self.assertEqual(len(result), 40000)
 
 
 if __name__ == "__main__":
