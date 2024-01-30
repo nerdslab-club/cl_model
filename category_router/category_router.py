@@ -192,7 +192,7 @@ class TestCategoryRouter(unittest.TestCase):
                 index = i + 1
                 e_two = output_token_decoder.forward(
                     batch_io_parser_output=batch_io_parser,
-                    task_type=task_type,
+                    task_types=task_type,
                     future_mask=future_mask,
                 )
 

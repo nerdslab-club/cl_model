@@ -51,7 +51,7 @@ class CategoryMapDecoder(nn.Module):
     def forward(
             self,
             batch_io_parser_output: list[list[dict]],
-            task_type: list[str],
+            task_types: list[str],
             src_padding_mask: Optional[torch.BoolTensor] = None,
             future_mask: Optional[torch.BoolTensor] = None,
     ):
@@ -62,7 +62,7 @@ class CategoryMapDecoder(nn.Module):
         E = embedding dimensionality
         V = vocabulary size
 
-        :param task_type: list of Type of task. ie: [func_to_nl_translation, ...]
+        :param task_types: list of Type of task. ie: [func_to_nl_translation, ...]
         :param batch_io_parser_output: batch of io_parser_output. Shape (N, S)
         :param src_padding_mask: An attention mask to ignore pad-tokens in the source input. Shape (N, S)
         :param future_mask: An attention mask to ignore future-tokens in the target input. Shape (T, T)
@@ -71,7 +71,7 @@ class CategoryMapDecoder(nn.Module):
         # (batch_size, sequence_length, hidden_dim)
         x, cross_attention_mask, batch_of_encoder_hidden_states = self.embeddings_manager.get_batch_combined_embeddings_with_mask(
             batch_io_parser_output,
-            task_type
+            task_types
         )
         x = x * math.sqrt(self.hidden_dim)  # (N, S, E)
 

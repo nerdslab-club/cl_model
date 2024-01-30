@@ -50,7 +50,7 @@ class OutputTokenDecoder(nn.Module):
     def forward(
             self,
             batch_io_parser_output: list[list[dict]],
-            task_type: list[str],
+            task_types: list[str],
             src_padding_mask: Optional[torch.BoolTensor] = None,
             future_mask: Optional[torch.BoolTensor] = None,
     ):
@@ -61,14 +61,14 @@ class OutputTokenDecoder(nn.Module):
         E = embedding dimensionality
         V = vocabulary size
 
-        :param task_type: list of Type of task. ie: [func_to_nl_translation, ...]
+        :param task_types: list of Type of task. ie: [func_to_nl_translation, ...]
         :param batch_io_parser_output: batch of io_parser_output. Shape (N, S)
         :param src_padding_mask: An attention mask to ignore pad-tokens in the source input. Shape (N, S)
         :param future_mask: An attention mask to ignore future-tokens in the target input. Shape (T, T)
         :return: E2 -> Embedding for output tokens. Shape (N, S, E)
         """
         # (batch_size, sequence_length, hidden_dim)
-        x = self.embeddings_manager.get_batch_combined_embeddings(batch_io_parser_output, task_type) \
+        x = self.embeddings_manager.get_batch_combined_embeddings(batch_io_parser_output, task_types) \
             * math.sqrt(self.hidden_dim)  # (N, S, E)
         x = self.output_token_decoder_dropout(x)
 

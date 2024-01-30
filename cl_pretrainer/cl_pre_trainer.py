@@ -170,7 +170,7 @@ class TestClPreTrainer(unittest.TestCase):
                 # Staring left side for category map
                 e_one = cl_pre_trainer.category_map_decoder.forward(
                     batch_io_parser_output=batch_io_parser_output,
-                    task_type=task_type,
+                    task_types=task_type,
                     future_mask=future_mask,
                 )
 
@@ -182,7 +182,7 @@ class TestClPreTrainer(unittest.TestCase):
                 # Starting right side for output token
                 e_two = cl_pre_trainer.output_token_decoder.forward(
                     batch_io_parser_output=batch_io_parser_output,
-                    task_type=task_type,
+                    task_types=task_type,
                     future_mask=future_mask,
                 )
 

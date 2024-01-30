@@ -25,7 +25,7 @@ def cl_pre_trainer_inference(
 ):
     model.train(False)
     num_iters = 0
-    for i, (src_batch, padding_mask, tgt_batch, future_mask, task_type) in enumerate(
+    for i, (src_batch, padding_mask, tgt_batch, future_mask, task_types) in enumerate(
             zip(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY],
                 masks[BatchBuilder.PADDING_MASK_KEY],
                 batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY],
@@ -44,7 +44,7 @@ def cl_pre_trainer_inference(
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ Compute category probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             e_one = model.category_map_decoder.forward(
                 batch_io_parser_output=truncated_src_batch,
-                task_type=task_type,
+                task_types=task_types,
                 future_mask=truncated_future_mask,
             )
 
@@ -56,7 +56,7 @@ def cl_pre_trainer_inference(
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             e_two = model.output_token_decoder.forward(
                 batch_io_parser_output=truncated_src_batch,
-                task_type=task_type,
+                task_types=task_types,
                 future_mask=truncated_future_mask,
             )
 
@@ -111,12 +111,13 @@ class TestClPreTrainerInference(unittest.TestCase):
         data_loader = DataLoader()
         data_loader_result = data_loader.create_data_loader_output(
             batch_size=batch_size,
-            number_of_batch=3,
+            number_of_batch=4,
             add_bos_and_eos=True,
             max_sequence_length=max_decoding_length,
-            task_generator_index=2,
-            generator_index=2,
+            task_generator_indexes=[2, 3],
+            generator_indexes=[0],
             identifier=0,
+            shuffle=True,
         )
         corpus_io_parser_output = [item[Constants.IO_PARSER_OUTPUT] for item in data_loader_result]
 

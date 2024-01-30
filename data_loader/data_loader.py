@@ -38,20 +38,22 @@ class DataLoader:
             number_of_batch: int,
             add_bos_and_eos: bool,
             max_sequence_length: int | None,
-            task_generator_index: int | None = None,
-            generator_index: int | None = None,
-            identifier: int | None = None
+            task_generator_indexes: list[int] | None = None,
+            generator_indexes: list[int] | None = None,
+            identifier: int | None = None,
+            shuffle: bool = False,
     ) -> list[dict]:
         """This function will concat the inputStr and outputStr and create a sentence on which the generative
         Curious learner model is to be trained, It will also include the input_token_count to the dictionary
         which is to be used as a dynamic value during training for the input.
 
+        :param shuffle: shuffle the list before return is true.
         :param batch_size: Size of the batch
         :param number_of_batch: The number of batch we need. batch_size * number_of_batch == count
         :param add_bos_and_eos: Flag for weather to add BOS and EOS to the Token list.
         :param max_sequence_length: Max length until which padding will be added. If None then no padding.
-        :param task_generator_index: It can be between 0-3, which indicated the task-type generator index
-        :param generator_index: This is the example function generator index,
+        :param task_generator_indexes: It can be between 0-3, which indicated the task-type generator index
+        :param generator_indexes: This is the example function generator index,
                which we can be between 0-get_length_of_sample_generators(self)
         :param identifier: This is the example of the function, it can be any number,
                but for a specific number same example will be retrieved each time.
@@ -60,9 +62,10 @@ class DataLoader:
         data_loader_output = self.data_generator.generate_batch_of(
             batch_size,
             number_of_batch,
-            task_generator_index,
-            generator_index,
+            task_generator_indexes,
+            generator_indexes,
             identifier,
+            shuffle,
         )
         for data in data_loader_output:
             self.create_sentence_using_input_and_output(data)
@@ -94,9 +97,10 @@ class DataLoaderTest(unittest.TestCase):
             number_of_batch=1,
             add_bos_and_eos=True,
             max_sequence_length=16,
-            task_generator_index=2,
-            generator_index=2,
-            identifier=3
+            task_generator_indexes=[2],
+            generator_indexes=[2],
+            identifier=3,
+            shuffle=True,
         )
         print(result)
         expected_result = [
@@ -109,6 +113,20 @@ class DataLoaderTest(unittest.TestCase):
             }
         ]
         self.assertEqual(result[0][Constants.INPUT_TOKEN_COUNT], expected_result[0][Constants.INPUT_TOKEN_COUNT])
+
+    def test_create_data_loader_output_all(self):
+        data_loader = DataLoader()
+        result = data_loader.create_data_loader_output(
+            batch_size=40,
+            number_of_batch=1000,
+            add_bos_and_eos=True,
+            max_sequence_length=16,
+            task_generator_indexes=[0, 1, 2, 3],
+            generator_indexes=[i for i in range(98)],
+            identifier=0,
+            shuffle=True,
+        )
+        self.assertEqual(len(result), 6000)
 
 
 if __name__ == "__main__":
