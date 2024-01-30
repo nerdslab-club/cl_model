@@ -18,15 +18,17 @@ class DataGenerator:
 
     def generate_batch_of(
             self,
-            count: int,
+            batch_size: int,
+            number_of_batch: int,
             task_generator_index: int | None = None,
             generator_index: int | None = None,
             identifier: int | None = None) -> list[dict]:
         """
-        This function generate samples for training either randomly or in a paginated way if task_generator_index,
+        This function generates sample for training either randomly or in a paginated way if task_generator_index,
         generator_index and identifier is provided
 
-        :param count: The number of sample that is asked for.
+        :param batch_size: Size of the batch
+        :param number_of_batch: The number of batch we need. batch_size * number_of_batch == count
         :param task_generator_index: It can be between 0-3, which indicated the task-type generator index
         :param generator_index: This is the example function generator index,
                which we can be between 0-get_length_of_sample_generators(self)
@@ -35,18 +37,19 @@ class DataGenerator:
         :return: The sample with the task type in a map.
         """
         samples = []
-        if task_generator_index is not None:
-            random_index = task_generator_index
-        else:
-            random_index = RandomValueGenerator.generate_random_integer(0, 4)
+        for i in range(number_of_batch):
+            if task_generator_index is not None:
+                random_index = task_generator_index
+            else:
+                random_index = RandomValueGenerator.generate_random_integer(0, 4)
 
-        current_task_sample_generator = self.available_generator[random_index]
-        samples_from_this_generator = current_task_sample_generator.get_next_random_sample(
-            count,
-            generator_index,
-            identifier,
-        )
-        samples.extend(samples_from_this_generator)
+            current_task_sample_generator = self.available_generator[random_index]
+            samples_from_this_generator = current_task_sample_generator.get_next_random_sample(
+                batch_size,
+                generator_index,
+                identifier,
+            )
+            samples.extend(samples_from_this_generator)
         return samples
 
 
@@ -54,7 +57,7 @@ class DataGeneratorTest(unittest.TestCase):
 
     def test_generate_batch_of(self):
         data_generator = DataGenerator()
-        generated_batch = data_generator.generate_batch_of(12)
+        generated_batch = data_generator.generate_batch_of(4, 3)
         print(generated_batch)
         self.assertEqual(len(generated_batch), 12)
 

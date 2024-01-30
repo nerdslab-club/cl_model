@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple, Optional
 import torch
 
 from cl_data.io_parser.io_parser import IoParser
+from cl_data.io_parser.io_parser_utility import split_string_custom
 from cl_data.pretrain_data.next_token_sample_generator import NextTokenSamplesGenerator
 from cl_data.src.constants import Constants, SpecialTokens
 from cl_data.src.utility import Utility
@@ -16,6 +17,7 @@ class BatchBuilder:
     DECODER_IO_PARSER_OUTPUT_KEY = "decoderIoParserOutput"
     FUTURE_MASK_KEY = "futureMaskKey"
     PADDING_MASK_KEY = "paddingMaskKey"
+    TASK_TYPE_KEY = "taskTypeKey"
 
     #  corpus_source = [
     #             "Laughter is contagious, spreading joy and happiness",
@@ -59,7 +61,8 @@ class BatchBuilder:
         return batch_io_parser_output
 
     @staticmethod
-    def get_sentence_io_parser_output(sentence: str, add_bos_and_eos: bool, max_sequence_length: int | None) -> list[dict]:
+    def get_sentence_io_parser_output(sentence: str, add_bos_and_eos: bool, max_sequence_length: int | None) -> list[
+        dict]:
         """Given a sentence it called io parser on the sentence with special tokens and paddings
 
         :param sentence: A normal sentence string.
@@ -75,9 +78,87 @@ class BatchBuilder:
             is_eos_finishing_token=False,
         )
 
+    # TODO deprecated method delete afterward.
+    # @staticmethod
+    # def construct_batches_for_cl_pre_trainer(
+    #         corpus: List[str],
+    #         batch_size: int,
+    #         max_decoder_sequence_length: int,
+    #         device: Optional[torch.device] = None,
+    #         is_generative_training=False,
+    # ) -> Tuple[Dict[str, list[list[list[dict]]]], Dict[str, List[torch.Tensor]]]:
+    #     """Constructs batches given sample corpus for cl pre trainer model
+    #
+    #     :param corpus: This is a list of sentences on which the model is to be trained. ie.
+    #     [
+    #        "In the kingdom of Numerosia, where equations adorned the walls and numbers held the key to understanding",
+    #        "lived a passionate mathematician named Mia.",
+    #        "Mia's life was dedicated to unraveling mathematical puzzles",
+    #        "and her reputation extended far beyond the kingdom's borders.",
+    #        "One fateful day, a mysterious messenger delivered an ornate scroll to her doorstep.",
+    #     ]
+    #     :param batch_size: The number of sequences in a batch
+    #     :param max_decoder_sequence_length: Truncate/Allowed max decoder sequence length. If None then no padding.
+    #     :param device: whether to move tensors to gpu
+    #     :param is_generative_training: Flag for generative training like: 0123 -> 01234, 01234 -> 012345 ...
+    #     :return: A tuple containing two dictionaries.
+    #     The first represents the batches, This is batch io parser output.
+    #     Second one represents the attention masks. This is bool Tensor.
+    #     """
+    #     if is_generative_training:
+    #         next_token_task_corpus = BatchBuilder.create_generative_training_samples(corpus)
+    #         print(f"Generative examples: {next_token_task_corpus}\n")
+    #     else:
+    #         next_token_task_corpus = [
+    #             {BatchBuilder.SOURCE_LANGUAGE_KEY: src, BatchBuilder.TARGET_LANGUAGE_KEY: tgt} for src, tgt in
+    #             zip(corpus, corpus)
+    #         ]
+    #     batches: Dict[str, List] = {
+    #         BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY: [],
+    #         BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY: [],
+    #     }
+    #     masks: Dict[str, List] = {
+    #         BatchBuilder.FUTURE_MASK_KEY: [],
+    #         BatchBuilder.PADDING_MASK_KEY: [],
+    #     }
+    #     for i in range(0, len(next_token_task_corpus), batch_size):
+    #         input_sentences = [
+    #             pair.get(BatchBuilder.SOURCE_LANGUAGE_KEY, "")
+    #             for pair in next_token_task_corpus[i: i + batch_size]
+    #         ]
+    #         src_batch = BatchBuilder.get_batch_io_parser_output(
+    #             sentences=input_sentences,
+    #             add_bos_and_eos=True,
+    #             max_sequence_length=max_decoder_sequence_length,
+    #         )
+    #
+    #         output_sentences = [
+    #             pair.get(BatchBuilder.TARGET_LANGUAGE_KEY, "")
+    #             for pair in next_token_task_corpus[i: i + batch_size]
+    #         ]
+    #         tgt_batch = BatchBuilder.get_batch_io_parser_output(
+    #             sentences=output_sentences,
+    #             add_bos_and_eos=True,
+    #             max_sequence_length=max_decoder_sequence_length,
+    #         )
+    #         future_mask = BatchBuilder.construct_future_mask(max_decoder_sequence_length)
+    #         padding_mask = BatchBuilder.construct_padding_mask(src_batch)
+    #
+    #         if device is not None:
+    #             src_batch = src_batch.to(device)  # type: ignore
+    #             tgt_batch = tgt_batch.to(device)  # type: ignore
+    #             future_mask = future_mask.to(device)
+    #             padding_mask = padding_mask.to(device)
+    #
+    #         batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY].append(src_batch)
+    #         batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY].append(tgt_batch)
+    #         masks[BatchBuilder.PADDING_MASK_KEY].append(padding_mask)
+    #         masks[BatchBuilder.FUTURE_MASK_KEY].append(future_mask)
+    #     return batches, masks
+
     @staticmethod
-    def construct_batches_for_cl_pre_trainer(
-            corpus: List[str],
+    def construct_batches_for_cl_pre_trainer_with_data_loader(
+            data_loader_output: List[dict],
             batch_size: int,
             max_decoder_sequence_length: int,
             device: Optional[torch.device] = None,
@@ -85,13 +166,27 @@ class BatchBuilder:
     ) -> Tuple[Dict[str, list[list[list[dict]]]], Dict[str, List[torch.Tensor]]]:
         """Constructs batches given sample corpus for cl pre trainer model
 
-        :param corpus: This is a list of sentences on which the model is to be trained. ie.
+        :param data_loader_output: This is a list of data loader output on which the model is to be trained. ie.
         [
-           "In the kingdom of Numerosia, where equations adorned the walls and numbers held the key to understanding",
-           "lived a passionate mathematician named Mia.",
-           "Mia's life was dedicated to unraveling mathematical puzzles",
-           "and her reputation extended far beyond the kingdom's borders.",
-           "One fateful day, a mysterious messenger delivered an ornate scroll to her doorstep.",
+            {
+               "inputStr": "##multiplication(107.23600916441234,784.625535184504)",
+               "outputStr": "107.23600916441234 times 784.625535184504 equals?",
+               "taskType": "func_to_nl_translation",
+               "sentence": "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504 equals?",
+               "ioParserOutput": [
+                   {
+                       "token": "<BOS>",
+                       "category": {
+                           "type": "special",
+                           "subType": "word",
+                           "subSubType": "none"
+                       },
+                       "position": 0
+                   },
+                   ...
+               ],
+               "inputTokenCount": 4,
+           }
         ]
         :param batch_size: The number of sequences in a batch
         :param max_decoder_sequence_length: Truncate/Allowed max decoder sequence length. If None then no padding.
@@ -102,12 +197,16 @@ class BatchBuilder:
         Second one represents the attention masks. This is bool Tensor.
         """
         if is_generative_training:
-            next_token_task_corpus = BatchBuilder.create_generative_training_samples(corpus)
+            next_token_task_corpus = BatchBuilder.create_generative_training_samples(data_loader_output)
             print(f"Generative examples: {next_token_task_corpus}\n")
         else:
             next_token_task_corpus = [
-                {BatchBuilder.SOURCE_LANGUAGE_KEY: src, BatchBuilder.TARGET_LANGUAGE_KEY: tgt} for src, tgt in
-                zip(corpus, corpus)
+                {
+                    BatchBuilder.SOURCE_LANGUAGE_KEY: src[Constants.SENTENCE],
+                    BatchBuilder.TARGET_LANGUAGE_KEY: tgt[Constants.SENTENCE],
+                    BatchBuilder.TASK_TYPE_KEY: src[Constants.TASK_TYPE]
+                } for src, tgt in
+                zip(data_loader_output, data_loader_output)
             ]
         batches: Dict[str, List] = {
             BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY: [],
@@ -116,6 +215,7 @@ class BatchBuilder:
         masks: Dict[str, List] = {
             BatchBuilder.FUTURE_MASK_KEY: [],
             BatchBuilder.PADDING_MASK_KEY: [],
+            BatchBuilder.TASK_TYPE_KEY: [],
         }
         for i in range(0, len(next_token_task_corpus), batch_size):
             input_sentences = [
@@ -139,6 +239,7 @@ class BatchBuilder:
             )
             future_mask = BatchBuilder.construct_future_mask(max_decoder_sequence_length)
             padding_mask = BatchBuilder.construct_padding_mask(src_batch)
+            task_type = BatchBuilder.create_task_type_list(next_token_task_corpus[i: i + batch_size])
 
             if device is not None:
                 src_batch = src_batch.to(device)  # type: ignore
@@ -150,21 +251,36 @@ class BatchBuilder:
             batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY].append(tgt_batch)
             masks[BatchBuilder.PADDING_MASK_KEY].append(padding_mask)
             masks[BatchBuilder.FUTURE_MASK_KEY].append(future_mask)
+            masks[BatchBuilder.TASK_TYPE_KEY].append(task_type)
         return batches, masks
 
     @staticmethod
-    def create_generative_training_samples(corpus: List[str]) -> List[Dict[str, str]]:
+    def create_generative_training_samples(data_loader_output: List[dict]) -> List[Dict[str, str]]:
         """
         After three words this function will create samples by using 1-3 words as input and 1-4 words as output.
         Which is actually next word prediction. This process will be continued until the whole sentence is covered.
 
-        :param corpus: This is a list of sentences on which the model is to be trained. ie.
+        :param data_loader_output: This is a list of sentences on which the model is to be trained. ie.
         [
-           "In the kingdom of Numerosia, where equations adorned the walls and numbers held the key to understanding",
-           "lived a passionate mathematician named Mia.",
-           "Mia's life was dedicated to unraveling mathematical puzzles",
-           "and her reputation extended far beyond the kingdom's borders.",
-           "One fateful day, a mysterious messenger delivered an ornate scroll to her doorstep.",
+           {
+               "inputStr": "##multiplication(107.23600916441234,784.625535184504)",
+               "outputStr": "107.23600916441234 times 784.625535184504 equals?",
+               "taskType": "func_to_nl_translation",
+               "sentence": "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504 equals?",
+               "ioParserOutput": [
+                   {
+                       "token": "<BOS>",
+                       "category": {
+                           "type": "special",
+                           "subType": "word",
+                           "subSubType": "none"
+                       },
+                       "position": 0
+                   },
+                   ...
+               ],
+               "inputTokenCount": 4,
+           }
         ]
         :return: List of dictionaries where the input key is BatchBuilder.SOURCE_LANGUAGE_KEY
         and the output key is BatchBuilder.TARGET_LANGUAGE_KEY
@@ -172,20 +288,22 @@ class BatchBuilder:
 
         samples = []
 
-        for sentence in corpus:
-            words = sentence.split()
+        for data_loader_item in data_loader_output:
+            words = split_string_custom(data_loader_item[Constants.SENTENCE])
+            current_input_word_count = data_loader_item[Constants.INPUT_TOKEN_COUNT]
 
-            for i in range(len(words) - 6):
-                # Input sequence: 1-3 words
-                input_sequence = " ".join(words[0: i + 6])
+            for i in range(len(words) - current_input_word_count):
+                # Input sequence: 1--INPUT_TOKEN_COUNT words
+                input_sequence = " ".join(words[0: i + current_input_word_count])
 
-                # Output sequence: 1-4 words
-                output_sequence = " ".join(words[0: i + 7])
+                # Output sequence: 1--INPUT_TOKEN_COUNT+1 words
+                output_sequence = " ".join(words[0: i + current_input_word_count + 1])
 
                 # Add the sample to the list
                 sample = {
                     BatchBuilder.SOURCE_LANGUAGE_KEY: input_sequence,
-                    BatchBuilder.TARGET_LANGUAGE_KEY: output_sequence
+                    BatchBuilder.TARGET_LANGUAGE_KEY: output_sequence,
+                    BatchBuilder.TASK_TYPE_KEY: data_loader_item[Constants.TASK_TYPE]
                 }
                 samples.append(sample)
 
@@ -292,21 +410,188 @@ class BatchBuilder:
 
         return padding_mask
 
+    @staticmethod
+    def create_task_type_list(batch_token_task_corpus: list[dict]):
+        """Gather all task type in a list for a batch.
+
+        :param batch_token_task_corpus: This is the next_token_task_corpus for a batch
+        :return: A list of task type.
+        """
+        result = [item[BatchBuilder.TASK_TYPE_KEY] for item in batch_token_task_corpus]
+        return result
+
 
 class TestUtils(unittest.TestCase):
 
     def test_create_generative_training_samples(self):
-        corpus = [
-            "one two three four five six seven eight nine ten eleven twelve",
+        data_loader_output = [
+            {
+                "inputStr": "##multiplication(107.23600916441234,784.625535184504)",
+                "outputStr": "107.23600916441234 times 784.625535184504 equals?",
+                "taskType": "func_to_nl_translation",
+                "sentence": "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504 equals?",
+                "ioParserOutput": [
+                    {
+                        "token": "<BOS>",
+                        "category": {
+                            "type": "special",
+                            "subType": "word",
+                            "subSubType": "none"
+                        },
+                        "position": 0
+                    },
+                    {
+                        "token": "<function MathFunctions.multiplication at 0x1168b3880>",
+                        "category": {
+                            "type": "function",
+                            "subType": "float",
+                            "subSubType": "execute"
+                        },
+                        "position": 1
+                    },
+                    {
+                        "token": 107.23600916441234,
+                        "category": {
+                            "type": "float",
+                            "subType": "default",
+                            "subSubType": "param_one"
+                        },
+                        "position": 2
+                    },
+                    {
+                        "token": 784.625535184504,
+                        "category": {
+                            "type": "float",
+                            "subType": "default",
+                            "subSubType": "param_last"
+                        },
+                        "position": 3
+                    },
+                    {
+                        "token": "=",
+                        "category": {
+                            "type": "word",
+                            "subType": "default",
+                            "subSubType": "none"
+                        },
+                        "position": 4
+                    },
+                    {
+                        "token": 107.23600916441234,
+                        "category": {
+                            "type": "float",
+                            "subType": "default",
+                            "subSubType": "none"
+                        },
+                        "position": 5
+                    },
+                    {
+                        "token": "times",
+                        "category": {
+                            "type": "word",
+                            "subType": "default",
+                            "subSubType": "none"
+                        },
+                        "position": 6
+                    },
+                    {
+                        "token": 784.625535184504,
+                        "category": {
+                            "type": "float",
+                            "subType": "default",
+                            "subSubType": "none"
+                        },
+                        "position": 7
+                    },
+                    {
+                        "token": "equals?",
+                        "category": {
+                            "type": "word",
+                            "subType": "default",
+                            "subSubType": "none"
+                        },
+                        "position": 8
+                    },
+                    {
+                        "token": "<EOS>",
+                        "category": {
+                            "type": "special",
+                            "subType": "word",
+                            "subSubType": "none"
+                        },
+                        "position": 9
+                    },
+                    {
+                        "token": "<PAD>",
+                        "category": {
+                            "type": "special",
+                            "subType": "word",
+                            "subSubType": "none"
+                        },
+                        "position": 10
+                    },
+                    {
+                        "token": "<PAD>",
+                        "category": {
+                            "type": "special",
+                            "subType": "word",
+                            "subSubType": "none"
+                        },
+                        "position": 11
+                    },
+                    {
+                        "token": "<PAD>",
+                        "category": {
+                            "type": "special",
+                            "subType": "word",
+                            "subSubType": "none"
+                        },
+                        "position": 12
+                    },
+                    {
+                        "token": "<PAD>",
+                        "category": {
+                            "type": "special",
+                            "subType": "word",
+                            "subSubType": "none"
+                        },
+                        "position": 13
+                    },
+                    {
+                        "token": "<PAD>",
+                        "category": {
+                            "type": "special",
+                            "subType": "word",
+                            "subSubType": "none"
+                        },
+                        "position": 14
+                    },
+                    {
+                        "token": "<PAD>",
+                        "category": {
+                            "type": "special",
+                            "subType": "word",
+                            "subSubType": "none"
+                        },
+                        "position": 15
+                    }
+                ],
+                "inputTokenCount": 2
+            }
         ]
-        generative_samples = BatchBuilder.create_generative_training_samples(corpus)
+        generative_samples = BatchBuilder.create_generative_training_samples(data_loader_output)
         expected_result = [
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven"},
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six seven", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven eight"},
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six seven eight", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven eight nine"},
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six seven eight nine", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven eight nine ten"},
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six seven eight nine ten", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven eight nine ten eleven"},
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: "one two three four five six seven eight nine ten eleven", BatchBuilder.TARGET_LANGUAGE_KEY: "one two three four five six seven eight nine ten eleven twelve"},
+            {BatchBuilder.SOURCE_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) =",
+             BatchBuilder.TARGET_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234"},
+            {
+                BatchBuilder.SOURCE_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234",
+                BatchBuilder.TARGET_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times"},
+            {
+                BatchBuilder.SOURCE_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times",
+                BatchBuilder.TARGET_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504"},
+            {
+                BatchBuilder.SOURCE_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504",
+                BatchBuilder.TARGET_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504 equals?"},
         ]
         self.assertEqual(generative_samples, expected_result)
 
@@ -339,7 +624,8 @@ class TestUtils(unittest.TestCase):
             {'token': 'eight', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 8},
             {'token': '<EOS>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
              'position': 9},
-            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'}, 'position': 10},
+            {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
+             'position': 10},
             {'token': '<PAD>', 'category': {'type': 'special', 'subType': 'word', 'subSubType': 'none'},
              'position': 11},
         ]

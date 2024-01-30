@@ -43,7 +43,7 @@ class EmbeddingsManager:
         self.with_mask = with_mask
 
     def get_batch_combined_embeddings(
-            self, batch_io_parser_output: list[list[dict]], task_type: str
+            self, batch_io_parser_output: list[list[dict]], task_type: list[str]
     ) -> Tensor:
         """Batch of the io parser output, it converts every io parser item into it's combined embedding
 
@@ -55,9 +55,9 @@ class EmbeddingsManager:
         batch_item_tensors = torch.empty(
             (0, len(batch_io_parser_output[0]), 768), dtype=torch.float32
         )
-        for io_parser_output in batch_io_parser_output:
+        for index, io_parser_output in enumerate(batch_io_parser_output):
             item_tensors = self.get_sentence_combined_embeddings(
-                io_parser_output, task_type
+                io_parser_output, task_type[index]
             )
             batch_item_tensors = torch.cat(
                 (batch_item_tensors, item_tensors.unsqueeze(0)), dim=0
@@ -117,7 +117,7 @@ class EmbeddingsManager:
         return item_tensors
 
     def get_batch_combined_embeddings_with_mask(
-            self, batch_io_parser_output: list[list[dict]], task_type: str
+            self, batch_io_parser_output: list[list[dict]], task_type: list[str]
     ) -> tuple[Tensor, Tensor, list[list[Tensor]]]:
         """Batch of the io parser output, it converts every io parser item into
         it's combined embedding and cross attention mask and batch of encoder hidden state
@@ -136,9 +136,9 @@ class EmbeddingsManager:
             (0, len(batch_io_parser_output[0])), dtype=torch.bool
         )
         batch_encoder_hidden_states = []
-        for io_parser_output in batch_io_parser_output:
+        for index, io_parser_output in enumerate(batch_io_parser_output):
             item_tensors, mask_tensors, list_of_encoder_hidden_states = self.get_sentence_combined_embeddings_with_mask(
-                io_parser_output, task_type
+                io_parser_output, task_type[index]
             )
             batch_item_tensors = torch.cat(
                 (batch_item_tensors, item_tensors.unsqueeze(0)), dim=0
@@ -219,12 +219,12 @@ class EmbeddingsManager:
         return item_tensors, mask_tensors, list_of_encoder_hidden_states
 
     def get_batch_embeddings_maps(
-            self, batch_io_parser_output: list[list[dict]], task_type: str
+            self, batch_io_parser_output: list[list[dict]], task_type: list[str]
     ) -> list[list[dict]]:
         batch_embedding_maps = []
-        for io_parser_output in batch_io_parser_output:
+        for index, io_parser_output in enumerate(batch_io_parser_output):
             batch_embedding_maps.append(
-                self.get_sentence_embeddings_maps(io_parser_output, task_type)
+                self.get_sentence_embeddings_maps(io_parser_output, task_type[index])
             )
         return batch_embedding_maps
 
@@ -484,7 +484,7 @@ if __name__ == "__main__":
 
     batch_item_tensors, batch_mask_tensors, _ = embeddings_manager.get_batch_combined_embeddings_with_mask(
         [item, item],
-        "func_to_nl_translation",
+        ["func_to_nl_translation", "func_to_nl_translation"]
     )
     print(f"batch item tensors shape: {batch_item_tensors.shape}")
     print(f"batch mask tensors shape: {batch_mask_tensors.shape}")

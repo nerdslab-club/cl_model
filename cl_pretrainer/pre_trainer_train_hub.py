@@ -5,12 +5,13 @@ import torch
 from torch import nn
 
 from category_router.category_router import CategoryRouter
-from cl_data.src.constants import TaskTypes
+from cl_data.src.constants import Constants
 from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.cl_pre_trainer import ClPreTrainer
 from cl_pretrainer.lr_scheduler import NoamOpt
 from cl_pretrainer.pre_trainer_checkpoint_manager import ClPreTrainerCheckPointManager
 from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
+from data_loader.data_loader import DataLoader
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
@@ -26,7 +27,6 @@ def cl_pre_trainer_train(
         batches: Dict[str, List[List[List[dict]]]],
         masks: Dict[str, List[torch.Tensor]],
         n_epochs: int,
-        task_type: str,
         category_criterion: any,
         output_criterion_map: dict[int, any],
         patience=5,
@@ -47,11 +47,13 @@ def cl_pre_trainer_train(
     for epoch in range(start_epoch, start_epoch + n_epochs):
         total_accuracy = 0
         total_loss = 0
-        for i, (src_batch, padding_mask, tgt_batch, future_mask) in enumerate(
+        for i, (src_batch, padding_mask, tgt_batch, future_mask, task_type) in enumerate(
                 zip(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY],
                     masks[BatchBuilder.PADDING_MASK_KEY],
                     batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY],
-                    masks[BatchBuilder.FUTURE_MASK_KEY])
+                    masks[BatchBuilder.FUTURE_MASK_KEY],
+                    masks[BatchBuilder.TASK_TYPE_KEY],
+                    )
         ):
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ Compute category probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             tgt_category_probability = torch.tensor(category_vocab_builder.batch_encoder(tgt_batch))
@@ -257,16 +259,20 @@ class TestClPreTrainerTraining(unittest.TestCase):
         num_layers = 2
         dropout_p = 0.1
         max_decoding_length = 16
-        task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
-        # Creating the vocabulary corpus
-        sentences = [
-            "Quick brown fox jumps over the lazy dog in the meadow",
-            "Computed result of calculating the area of a circle with radius 3 = ##circle_area(3)",
-            "If you share 9 candies among 3 friends, each would get ##division(9,3) candies",
-            "Imagine having 10 apples and gaining 5 more. You would then have ##addition(10,5) apples",
-        ]
-        corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, max_decoding_length)
+        # Initializing the data loader
+        data_loader = DataLoader()
+        data_loader_result = data_loader.create_data_loader_output(
+            batch_size=batch_size,
+            number_of_batch=3,
+            add_bos_and_eos=True,
+            max_sequence_length=max_decoding_length,
+            task_generator_index=2,
+            generator_index=2,
+            identifier=0,
+        )
+        corpus_io_parser_output = [item[Constants.IO_PARSER_OUTPUT] for item in data_loader_result]
+
         # Initialize category vocabulary builder instance
         category_vocab_builder = CategoryVocabBuilder(corpus_io_parser_output)
         category_vocab_size = len(category_vocab_builder.category_vocab_item_to_index.keys())
@@ -286,11 +292,11 @@ class TestClPreTrainerTraining(unittest.TestCase):
         print(f"Output vocabularies count: {len(output_vocabularies.keys())}\n")
 
         # Creating the batch and masks
-        batches, masks = BatchBuilder.construct_batches_for_cl_pre_trainer(
-            sentences,
+        batches, masks = BatchBuilder.construct_batches_for_cl_pre_trainer_with_data_loader(
+            data_loader_result,
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
-            is_generative_training=True,
+            is_generative_training=False,
         )
         print(f"Number of batch available is: {len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY])}\n")
         # Initializing the CL pre trainer
@@ -333,7 +339,6 @@ class TestClPreTrainerTraining(unittest.TestCase):
             batches=batches,
             masks=masks,
             n_epochs=n_epochs,
-            task_type=task_type,
             is_training=True,
             verbose_log=True,
             category_criterion=category_criterion,
@@ -369,19 +374,19 @@ class TestClPreTrainerTraining(unittest.TestCase):
         num_layers = 2
         dropout_p = 0.1
         max_decoding_length = 16
-        task_type = TaskTypes.NL_TO_NL_TRANSLATION.value
 
-        # Creating the vocabulary corpus
-        sentences = [
-            # "The average of 2 , 3 , 4 is = ##average([2,3,4])",
-            # "&&average([1,2,3])",
-            # "@@average(@list)",
-            "The quick brown fox jumps over the lazy dog in the meadow",
-            "Adding 3 plus 2 equals ##addition(3,2)",
-            "Each children will receive ##division(9,3) candies",
-            "The result of subtracting 1 from 5 is ##subtraction(5,1)",
-        ]
-        corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, max_decoding_length)
+        # Initializing the data loader
+        data_loader = DataLoader()
+        data_loader_result = data_loader.create_data_loader_output(
+            batch_size=batch_size,
+            number_of_batch=3,
+            add_bos_and_eos=True,
+            max_sequence_length=max_decoding_length,
+            task_generator_index=2,
+            generator_index=2,
+            identifier=0,
+        )
+        corpus_io_parser_output = [item[Constants.IO_PARSER_OUTPUT] for item in data_loader_result]
         # Initialize category vocabulary builder instance
         category_vocab_builder = CategoryVocabBuilder(corpus_io_parser_output)
         category_vocab_size = len(category_vocab_builder.category_vocab_item_to_index.keys())
@@ -401,8 +406,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
         print(f"Output vocabularies count: {len(output_vocabularies.keys())}")
 
         # Creating the batch and masks
-        batches, masks = BatchBuilder.construct_batches_for_cl_pre_trainer(
-            sentences,
+        batches, masks = BatchBuilder.construct_batches_for_cl_pre_trainer_with_data_loader(
+            data_loader_result,
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
             is_generative_training=False,
@@ -482,7 +487,6 @@ class TestClPreTrainerTraining(unittest.TestCase):
             batches=batches,
             masks=masks,
             n_epochs=start_epoch,
-            task_type=task_type,
             is_training=False,
             verbose_log=True,
             category_criterion=category_criterion,

@@ -1,10 +1,10 @@
-import random
 import unittest
 
+from cl_data.io_parser.io_parser_utility import split_string_custom
 from cl_data.src.constants import Constants
 from cl_data.src.random_value_generator import RandomValueGenerator
 from cl_pretrainer.batch_builder import BatchBuilder
-from data_generator import DataGenerator
+from data_loader.data_generator import DataGenerator
 
 
 class DataLoader:
@@ -29,12 +29,13 @@ class DataLoader:
 
         # Combine using the chosen catalyst
         combined_str = f"{input_str} {chosen_catalyst} {output_str}"
-        example['sentence'] = combined_str
+        example[Constants.SENTENCE] = combined_str
         return combined_str
 
     def create_data_loader_output(
             self,
-            count: int,
+            batch_size: int,
+            number_of_batch: int,
             add_bos_and_eos: bool,
             max_sequence_length: int | None,
             task_generator_index: int | None = None,
@@ -45,7 +46,8 @@ class DataLoader:
         Curious learner model is to be trained, It will also include the input_token_count to the dictionary
         which is to be used as a dynamic value during training for the input.
 
-        :param count: The number of example that is needed.
+        :param batch_size: Size of the batch
+        :param number_of_batch: The number of batch we need. batch_size * number_of_batch == count
         :param add_bos_and_eos: Flag for weather to add BOS and EOS to the Token list.
         :param max_sequence_length: Max length until which padding will be added. If None then no padding.
         :param task_generator_index: It can be between 0-3, which indicated the task-type generator index
@@ -56,23 +58,20 @@ class DataLoader:
         :return: The samples with the taskType, sentence, io_parser_output & input_token_count in a map.
         """
         data_loader_output = self.data_generator.generate_batch_of(
-            count,
+            batch_size,
+            number_of_batch,
             task_generator_index,
             generator_index,
             identifier,
         )
         for data in data_loader_output:
             self.create_sentence_using_input_and_output(data)
-            data['io_parser_output'] = BatchBuilder.get_sentence_io_parser_output(
-                data['sentence'],
+            data[Constants.IO_PARSER_OUTPUT] = BatchBuilder.get_sentence_io_parser_output(
+                data[Constants.SENTENCE],
                 add_bos_and_eos,
                 max_sequence_length,
             )
-            for io_parser_item in data['io_parser_output']:
-                token: any = io_parser_item[Constants.TOKEN]
-                position: int = io_parser_item[Constants.POSITION]
-                if token in self.catalyst_list:
-                    data['input_token_count'] = position
+            data[Constants.INPUT_TOKEN_COUNT] = len(split_string_custom(data['inputStr'])) + 1
         return data_loader_output
 
 
@@ -91,7 +90,8 @@ class DataLoaderTest(unittest.TestCase):
     def test_create_data_loader_output(self):
         data_loader = DataLoader()
         result = data_loader.create_data_loader_output(
-            count=1,
+            batch_size=1,
+            number_of_batch=1,
             add_bos_and_eos=True,
             max_sequence_length=16,
             task_generator_index=2,
@@ -105,156 +105,10 @@ class DataLoaderTest(unittest.TestCase):
                 "outputStr": "107.23600916441234 times 784.625535184504 equals?",
                 "taskType": "func_to_nl_translation",
                 "sentence": "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504 equals?",
-                "io_parser_output": [
-                    {
-                        "token": "<BOS>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 0
-                    },
-                    {
-                        "token": "<function MathFunctions.multiplication at 0x1168b3880>",
-                        "category": {
-                            "type": "function",
-                            "subType": "float",
-                            "subSubType": "execute"
-                        },
-                        "position": 1
-                    },
-                    {
-                        "token": 107.23600916441234,
-                        "category": {
-                            "type": "float",
-                            "subType": "default",
-                            "subSubType": "param_one"
-                        },
-                        "position": 2
-                    },
-                    {
-                        "token": 784.625535184504,
-                        "category": {
-                            "type": "float",
-                            "subType": "default",
-                            "subSubType": "param_last"
-                        },
-                        "position": 3
-                    },
-                    {
-                        "token": "=",
-                        "category": {
-                            "type": "word",
-                            "subType": "default",
-                            "subSubType": "none"
-                        },
-                        "position": 4
-                    },
-                    {
-                        "token": 107.23600916441234,
-                        "category": {
-                            "type": "float",
-                            "subType": "default",
-                            "subSubType": "none"
-                        },
-                        "position": 5
-                    },
-                    {
-                        "token": "times",
-                        "category": {
-                            "type": "word",
-                            "subType": "default",
-                            "subSubType": "none"
-                        },
-                        "position": 6
-                    },
-                    {
-                        "token": 784.625535184504,
-                        "category": {
-                            "type": "float",
-                            "subType": "default",
-                            "subSubType": "none"
-                        },
-                        "position": 7
-                    },
-                    {
-                        "token": "equals?",
-                        "category": {
-                            "type": "word",
-                            "subType": "default",
-                            "subSubType": "none"
-                        },
-                        "position": 8
-                    },
-                    {
-                        "token": "<EOS>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 9
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 10
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 11
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 12
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 13
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 14
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 15
-                    }
-                ],
-                "input_token_count": 4
+                "inputTokenCount": 2
             }
         ]
-        self.assertEqual(result[0]['input_token_count'], expected_result[0]['input_token_count'])
+        self.assertEqual(result[0][Constants.INPUT_TOKEN_COUNT], expected_result[0][Constants.INPUT_TOKEN_COUNT])
 
 
 if __name__ == "__main__":
