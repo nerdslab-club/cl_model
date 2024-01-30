@@ -188,7 +188,7 @@ def cl_pre_trainer_train(
 
 
 def save_best_model(best_accuracy, epoch, model, scheduler, total_accuracy):
-    if total_accuracy > best_accuracy and epoch > 50:
+    if total_accuracy > best_accuracy and epoch > 20:
         best_accuracy = total_accuracy
         # Saving the best model
         ClPreTrainerCheckPointManager.save_checkpoint_map(
@@ -251,7 +251,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
     def test_cl_pre_trainer_train_and_save(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
-        n_epochs = 100
+        n_epochs = 40
         batch_size = 2
         num_heads = 8
         hidden_dim = 768
@@ -381,12 +381,13 @@ class TestClPreTrainerTraining(unittest.TestCase):
         data_loader = DataLoader()
         data_loader_result = data_loader.create_data_loader_output(
             batch_size=batch_size,
-            number_of_batch=3,
+            number_of_batch=4,
             add_bos_and_eos=True,
             max_sequence_length=max_decoding_length,
-            task_generator_index=2,
-            generator_index=2,
+            task_generator_indexes=[2, 3],
+            generator_indexes=[0],
             identifier=0,
+            shuffle=True,
         )
         corpus_io_parser_output = [item[Constants.IO_PARSER_OUTPUT] for item in data_loader_result]
         # Initialize category vocabulary builder instance
