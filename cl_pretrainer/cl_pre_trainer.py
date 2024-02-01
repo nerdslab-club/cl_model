@@ -39,6 +39,7 @@ class ClPreTrainer(nn.Module):
         self.dropout_p = dropout_p
         self.category_vocab_size = category_vocab_size
         self.index_to_output_vocabularies = index_to_output_vocabularies
+        self.device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
         # Creating embeddings manager instance
         self.embeddings_manager = EmbeddingsManager(
@@ -66,7 +67,6 @@ class ClPreTrainer(nn.Module):
             dropout_p=dropout_p,
             vocab_size=category_vocab_size,
         )
-        self.category_map_classification_head.eval()
 
         # Creating output token decoder instance
         self.output_token_decoder = OutputTokenDecoder(
@@ -77,7 +77,6 @@ class ClPreTrainer(nn.Module):
             num_layers=num_layers,
             dropout_p=dropout_p,
         )
-        self.output_token_decoder.eval()
 
         # Creating Category router instance
         self.category_router = CategoryRouter(
@@ -86,6 +85,15 @@ class ClPreTrainer(nn.Module):
             ff_dim=ff_dim,
             dropout_p=dropout_p,
         )
+
+        # Move to device
+        self.category_map_decoder.to(self.device)
+        self.category_map_classification_head.to(self.device)
+        self.output_token_decoder.to(self.device)
+        self.category_router.to(self.device)
+
+        self.category_map_classification_head.eval()
+        self.output_token_decoder.eval()
         self.category_router.eval()
         self._reset_parameters()
 

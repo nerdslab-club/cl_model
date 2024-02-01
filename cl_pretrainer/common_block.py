@@ -12,12 +12,18 @@ class CommonBlock(nn.Module):
         # sa => self attention
         # Multi head attention layer
         self.common_block_self_mha = MultiHeadAttention(hidden_dim, num_heads)
+
+        self.device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
+
         # Dropout is also known as regularization
         self.common_block_dropout = nn.Dropout(p=dropout_p)
         # Normalizing layer for propagating the token values
         # self.common_block_layer_norm = nn.LayerNorm(hidden_dim)
         self.common_block_layer_norm = RMSNorm(hidden_dim)
 
+        # Move to device
+        self.common_block_dropout.to(self.device)
+        self.common_block_layer_norm.to(self.device)
 
     def forward(
         self,
