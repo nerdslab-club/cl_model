@@ -34,6 +34,7 @@ def cl_pre_trainer_train(
         is_training=True,
         verbose_log=False,
         only_language_training=0,
+        device: torch.device = torch.device('cpu')
 ):
     model.train(is_training)
     if not is_training:
@@ -55,8 +56,12 @@ def cl_pre_trainer_train(
                     masks[BatchBuilder.TASK_TYPE_KEY],
                     )
         ):
+            # Move to CPU or Cuda
+            padding_mask = padding_mask.to(device)
+            future_mask = future_mask.to(device)
+
             # ~~~~~~~~~~~~~~~~~~~~~~~~~ Compute category probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-            tgt_category_probability = torch.tensor(category_vocab_builder.batch_encoder(tgt_batch))
+            tgt_category_probability = torch.tensor(category_vocab_builder.batch_encoder(tgt_batch)).to(device)
             # Removing the <BOS> category map
             tgt_category_probability = tgt_category_probability[:, 1:]
 
@@ -115,11 +120,13 @@ def cl_pre_trainer_train(
                     current_tgt_output_probability = PreTrainerUtils.create_tgt_tensor_for_output_classification_head(
                         output_classification_head_index=index,
                         tgt_batch_probability=tgt_output_probability,
-                    )
+                    ).to(device)
                     # Removing the <BOS> tgt output probability
                     current_tgt_output_probability = current_tgt_output_probability[:, 1:]
 
                     current_output_logits = output_logits_item[CategoryRouter.OUTPUT_LOGITS]
+                    current_output_logits.to(device)
+
                     # Removing the last garbage token from output logits
                     current_output_logits = current_output_logits[:, :-1, :]
 
@@ -250,7 +257,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
 
     def test_cl_pre_trainer_train_and_save(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-
+        print(f'Selected Device: {device}')
         n_epochs = 40
         batch_size = 2
         num_heads = 8
@@ -313,6 +320,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
             category_vocab_size=category_vocab_size,
             index_to_output_vocabularies=output_vocabularies,
         )
+        # Moved to CPU or GPU
+        cl_pre_trainer.to(device)
         cl_pre_trainer.eval()
         # Initialize learning rate scheduler, optimizer and loss (note: the original paper uses label smoothing)
         optimizer = torch.optim.AdamW(
@@ -346,6 +355,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             category_criterion=category_criterion,
             output_criterion_map=output_criterion_map,
             patience=80,
+            device=device
         )
 
         # Saving the model...
@@ -368,6 +378,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
 
     def test_cl_pre_trainer_model_load(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
+        print(f'Selected Device: {device}')
         n_epochs = 40
         batch_size = 2
         num_heads = 8
@@ -427,6 +438,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
             category_vocab_size=category_vocab_size,
             index_to_output_vocabularies=output_vocabularies,
         )
+        # Moved to CPU or GPU
+        cl_pre_trainer.to(device)
         cl_pre_trainer.eval()
 
         # Initialize learning rate scheduler, optimizer and loss (note: the original paper uses label smoothing)
@@ -494,6 +507,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             verbose_log=True,
             category_criterion=category_criterion,
             output_criterion_map=output_criterion_map,
+            device=device
         )
 
         print(f"batch loss {latest_batch_loss.item()}")

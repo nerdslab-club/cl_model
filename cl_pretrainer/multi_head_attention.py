@@ -22,6 +22,8 @@ class MultiHeadAttention(nn.Module):
         self.qkv_proj = nn.Linear(hidden_dim, 3 * num_heads * self.qkv_dim, bias=False)
         self.o_proj = nn.Linear(num_heads * self.qkv_dim, hidden_dim, bias=False)
         self._reset_parameters()
+        self.device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
+
 
     def _reset_parameters(self):
         """Weight initialization taken from the UvA DL1 PyTorch Transformer tutorial."""
@@ -173,6 +175,8 @@ class MultiHeadAttention(nn.Module):
         Shape: (T, T).
         :return: values (N, H, S or T, E/H), attention scores (N, H, S or T, S or T)
         """
+        # Move tensors to specified device
+        q, k, v = q.to(self.device), k.to(self.device), v.to(self.device)
 
         # Compute attention logits. Dot product between each query and key vector, through one matrix multiplication.
         # Results in un-normalized attention scores for each position's query vector to each position's key vector
@@ -200,7 +204,7 @@ class MultiHeadAttention(nn.Module):
                 n_heads=n_heads,
                 sequence_length=max_sequence_length,
                 with_mask=with_mask,
-            )
+            ).to(self.device)
 
             attn_logits = attn_logits - alibibi_bias
 
@@ -240,10 +244,12 @@ class MultiHeadAttention(nn.Module):
         :return: masked_logits (N, H, S or T, S or T)
         """
         if src_padding_mask is not None:
+            src_padding_mask = src_padding_mask.to(logits.device)  # Move mask to the device of logits
             masked_logits = logits.masked_fill(
                 src_padding_mask[:, None, None, :] == 0, float("-inf")
             )
         if future_mask is not None:
+            future_mask = future_mask.to(logits.device)  # Move mask to the device of logits
             masked_logits = logits.masked_fill(future_mask == 0, float("-inf"))
         return masked_logits
 

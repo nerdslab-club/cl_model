@@ -34,6 +34,9 @@ class CategoryAndTaskEncoder:
         self.d_type = d_type
         self.device = device
 
+        self.device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
+
+
     def categorical_encoding(
         self,
         category_map: dict,
@@ -41,14 +44,14 @@ class CategoryAndTaskEncoder:
     ):
         category_signal = self.__get_category_signal(
             category_map[Constants.CATEGORY_TYPE],
-        )
+        ).to(self.device)
         sub_category_signal = self.__get_sub_category_signal(
             category_map[Constants.CATEGORY_SUB_TYPE],
-        )
+        ).to(self.device)
         sub_sub_category_signal = self.__get_sub_sub_category_signal(
             category_map[Constants.CATEGORY_SUB_SUB_TYPE],
-        )
-        task_signal = self.__get_task_signal(task_type)
+        ).to(self.device)
+        task_signal = self.__get_task_signal(task_type).to(self.device)
         combined_signal = (
             category_signal
             + sub_category_signal
@@ -218,6 +221,11 @@ class CategoryAndTaskEncoder:
     def get_combined_embedding(
         token_embedding: Tensor, categorical_embedding: Tensor
     ) -> Tensor:
+        # Moved to CPU or Cuda
+        device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
+        token_embedding.to(device)
+        categorical_embedding.to(device)
+
         return token_embedding + categorical_embedding[: token_embedding.size(0)]
 
     @staticmethod

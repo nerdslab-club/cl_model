@@ -41,6 +41,7 @@ class EmbeddingsManager:
         self.n_heads = n_heads
         self.max_sequence_length = max_sequence_length
         self.with_mask = with_mask
+        self.device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
     def get_batch_combined_embeddings(
             self, batch_io_parser_output: list[list[dict]], task_type: list[str]
@@ -53,7 +54,7 @@ class EmbeddingsManager:
         Shape [ len(batch_io_parser_output), len(io_parser_output), 768]
         """
         batch_item_tensors = torch.empty(
-            (0, len(batch_io_parser_output[0]), 768), dtype=torch.float32
+            (0, len(batch_io_parser_output[0]), 768), dtype=torch.float32, device=self.device
         )
         for index, io_parser_output in enumerate(batch_io_parser_output):
             item_tensors = self.get_sentence_combined_embeddings(
@@ -93,7 +94,7 @@ class EmbeddingsManager:
         :param task_type: Type of task. ie: func_to_nl_translation.
         :return: Return the combined embeddings of sentence. Shape [ len(io_parser_output), 768]
         """
-        item_tensors = torch.empty((0, 768), dtype=torch.float32)
+        item_tensors = torch.empty((0, 768), dtype=torch.float32, device=self.device)
         for io_parser_output_item in io_parser_output:
             token: any = io_parser_output_item[Constants.TOKEN]
             category_map: dict = io_parser_output_item[Constants.CATEGORY]
@@ -130,10 +131,10 @@ class EmbeddingsManager:
         and batch of encoder hidden state.
         """
         batch_item_tensors = torch.empty(
-            (0, len(batch_io_parser_output[0]), 768), dtype=torch.float32
+            (0, len(batch_io_parser_output[0]), 768), dtype=torch.float32, device=self.device
         )
         batch_function_param_mask = torch.empty(
-            (0, len(batch_io_parser_output[0])), dtype=torch.bool
+            (0, len(batch_io_parser_output[0])), dtype=torch.bool, device=self.device
         )
         batch_encoder_hidden_states = []
         for index, io_parser_output in enumerate(batch_io_parser_output):
@@ -181,8 +182,8 @@ class EmbeddingsManager:
         and cross attention mask. Shape[len(io_parser_output)]
         and list of encoder hidden state.
         """
-        item_tensors = torch.empty((0, 768), dtype=torch.float32)
-        mask_tensors = torch.empty(0, dtype=torch.bool)
+        item_tensors = torch.empty((0, 768), dtype=torch.float32, device=self.device)
+        mask_tensors = torch.empty(0, dtype=torch.bool, device=self.device)
         list_of_encoder_hidden_states = []
 
         for io_parser_output_item in io_parser_output:
@@ -194,11 +195,11 @@ class EmbeddingsManager:
             token_embedding = self.get_token_embedding(
                 token,
                 category_type,
-            )
+            ).to(self.device)
             category_and_task_embedding = self.get_category_and_task_embedding(
                 category_map,
                 task_type,
-            )
+            ).to(self.device)
             combined_embedding = self.get_combined_embedding(
                 token_embedding,
                 category_and_task_embedding,
@@ -211,10 +212,11 @@ class EmbeddingsManager:
             is_function_param = torch.tensor(
                 [EmbeddingsManager.is_function_param_token(category_sub_subtype)],
                 dtype=torch.bool,
+                device=self.device
             )
             mask_tensors = torch.cat((mask_tensors, is_function_param), dim=0)
             if EmbeddingsManager.is_function_token(category_type):
-                list_of_encoder_hidden_states.append(self.get_function_token_embedding(token, category_type))
+                list_of_encoder_hidden_states.append(self.get_function_token_embedding(token, category_type).to(self.device))
 
         return item_tensors, mask_tensors, list_of_encoder_hidden_states
 
@@ -299,15 +301,13 @@ class EmbeddingsManager:
     def get_token_embedding(self,
                             token: any,
                             category_type: str,
-                            show_progress_bar: bool = False,
-                            device: str = None, ) -> Tensor:
+                            show_progress_bar: bool = False) -> Tensor:
         if category_type == CategoryType.FUNCTION.value:
             token = FunctionManager.get_doc_string_of_function(token)
         return self.initial_word_encoder.get_sentence_embedding(
             str(token),
             True,
-            show_progress_bar=show_progress_bar,
-            device=device
+            show_progress_bar=show_progress_bar
         )
 
     def get_category_and_task_embedding(

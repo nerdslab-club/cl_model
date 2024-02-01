@@ -15,12 +15,13 @@ from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 class CategoryMapClassificationHead(nn.Module):
     def __init__(self, hidden_dim: int, ff_dim: int, vocab_size: int, dropout_p: float):
         super().__init__()
+        self.device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
         self.category_map_classification_head_feed_forward = nn.Sequential(
             nn.Linear(hidden_dim, ff_dim),
             nn.PReLU(),
             nn.Linear(ff_dim, hidden_dim),
-        )
+        ).to(self.device)
 
         # Dropout is also known as regularization
         self.category_map_classification_head_dropout = nn.Dropout(p=dropout_p)
@@ -30,6 +31,11 @@ class CategoryMapClassificationHead(nn.Module):
         # Projecting the hidden dimension into vocabulary size,
         # so that we can use softmax and find specific word probability.
         self.category_map_classification_head_output_layer = nn.Linear(hidden_dim, vocab_size, bias=False)
+
+        # Move to device
+        self.category_map_classification_head_dropout.to(self.device)
+        self.category_map_classification_head_layer_norm.to(self.device)
+        self.category_map_classification_head_output_layer.to(self.device)
 
     def forward(self, e_one: torch.Tensor):
         # Feed forward layers

@@ -10,11 +10,12 @@ class CategoryMapBlock(nn.Module):
         super().__init__()
         self.category_map_block_cross_mha = MultiHeadAttention(hidden_dim, num_heads)
         self.category_map_block_self_mha = MultiHeadAttention(hidden_dim, num_heads)
+        self.device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         self.category_map_block_feed_forward = nn.Sequential(
             nn.Linear(hidden_dim, ff_dim),
             nn.LeakyReLU(),
             nn.Linear(ff_dim, hidden_dim),
-        )
+        ).to(self.device)
 
         # Dropout is also known as regularization
         self.category_map_block_dropout1 = nn.Dropout(p=dropout_p)
@@ -22,6 +23,12 @@ class CategoryMapBlock(nn.Module):
         # Normalizing layer for propagating the token values
         self.category_map_block_layer_norm1 = RMSNorm(hidden_dim)
         self.category_map_block_layer_norm2 = RMSNorm(hidden_dim)
+
+        # Move to device
+        self.category_map_block_dropout1.to(self.device)
+        self.category_map_block_dropout2.to(self.device)
+        self.category_map_block_layer_norm1.to(self.device)
+        self.category_map_block_layer_norm2.to(self.device)
 
     def forward(self,
                 x: torch.FloatTensor,
@@ -42,8 +49,8 @@ class CategoryMapBlock(nn.Module):
         :return: Updated intermediate decoder category map block token embeddings. Shape: (N, S, E)
         """
         # Multi Head Self attention
-        output = self.category_map_block_self_mha.forward(x)
-        output = self.update_function_params_token_using_cross_attention(output, function_param_token_infos)
+        output = self.category_map_block_self_mha.forward(x).to(self.device)
+        output = self.update_function_params_token_using_cross_attention(output, function_param_token_infos).to(self.device)
 
         output = self.category_map_block_dropout1(output)
         x = self.category_map_block_layer_norm1(x + output)

@@ -31,9 +31,13 @@ class CategoryMapDecoder(nn.Module):
         self.num_layers = num_layers
         self.dropout_param = dropout_p
         self.embeddings_manager = embeddings_manager
+        self.device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
         self.category_map_decoder_dropout = nn.Dropout(p=0.1)
         self.category_map_decoder_blocks = nn.ModuleList(self._create_category_map_decoder_blocks())
+
+        # Move to device
+        self.category_map_decoder_dropout.to(self.device)
 
     def _create_category_map_decoder_blocks(self):
         block_list = []

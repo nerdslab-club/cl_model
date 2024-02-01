@@ -197,9 +197,10 @@ class PreTrainerUtils:
 
     @staticmethod
     def get_category_criterion(category_index_to_count: dict[int, int]) -> any:
+        device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         return nn.CrossEntropyLoss(
             label_smoothing=0.01,
-            weight=PreTrainerUtils.calculate_loss_weight(category_index_to_count)
+            weight=PreTrainerUtils.calculate_loss_weight(category_index_to_count).to(device)
         )
 
     @staticmethod
@@ -218,12 +219,13 @@ class PreTrainerUtils:
 
     @staticmethod
     def get_output_criterion_map(index_to_output_vocabularies: dict) -> dict[int, any]:
+        device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         losses_map = {}
         for index, output_vocabulary in index_to_output_vocabularies.items():
             current_index_to_count = output_vocabulary[OutputVocabBuilder.INDEX_TO_COUNT]
             current_loss = nn.CrossEntropyLoss(
                 label_smoothing=0.01,
-                weight=PreTrainerUtils.calculate_loss_weight(current_index_to_count, is_output_classification_head=True)
+                weight=PreTrainerUtils.calculate_loss_weight(current_index_to_count, is_output_classification_head=True).to(device)
             )
             losses_map[index] = current_loss
         return losses_map
