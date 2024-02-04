@@ -5,7 +5,6 @@ import torch
 
 from cl_data.io_parser.io_parser import IoParser
 from cl_data.io_parser.io_parser_utility import split_string_custom
-from cl_data.pretrain_data.next_token_sample_generator import NextTokenSamplesGenerator
 from cl_data.src.constants import Constants, SpecialTokens
 from cl_data.src.utility import Utility
 
@@ -18,6 +17,7 @@ class BatchBuilder:
     FUTURE_MASK_KEY = "futureMaskKey"
     PADDING_MASK_KEY = "paddingMaskKey"
     TASK_TYPE_KEY = "taskTypeKey"
+    INITIAL_TOKEN_COUNT_KEY = "initialTokenCountKey"
 
     #  corpus_source = [
     #             "Laughter is contagious, spreading joy and happiness",
@@ -161,11 +161,13 @@ class BatchBuilder:
             data_loader_output: List[dict],
             batch_size: int,
             max_decoder_sequence_length: int,
+            add_bos_and_eos: bool = True,
             device: Optional[torch.device] = None,
             is_generative_training=False,
     ) -> Tuple[Dict[str, list[list[list[dict]]]], Dict[str, List[torch.Tensor]]]:
         """Constructs batches given sample corpus for cl pre trainer model
 
+        :param add_bos_and_eos: Weather to add bos and eos or not
         :param data_loader_output: This is a list of data loader output on which the model is to be trained. ie.
         [
             {
@@ -197,14 +199,19 @@ class BatchBuilder:
         Second one represents the attention masks. This is bool Tensor.
         """
         if is_generative_training:
-            next_token_task_corpus = BatchBuilder.create_generative_training_samples(data_loader_output)
+            next_token_task_corpus = BatchBuilder.create_generative_training_samples(
+                data_loader_output,
+                max_decoder_sequence_length,
+                add_bos_and_eos,
+            )
             print(f"Generative examples: {next_token_task_corpus}\n")
         else:
             next_token_task_corpus = [
                 {
-                    BatchBuilder.SOURCE_LANGUAGE_KEY: src[Constants.SENTENCE],
-                    BatchBuilder.TARGET_LANGUAGE_KEY: tgt[Constants.SENTENCE],
-                    BatchBuilder.TASK_TYPE_KEY: src[Constants.TASK_TYPE]
+                    BatchBuilder.SOURCE_LANGUAGE_KEY: src[Constants.IO_PARSER_OUTPUT],
+                    BatchBuilder.TARGET_LANGUAGE_KEY: tgt[Constants.IO_PARSER_OUTPUT],
+                    BatchBuilder.TASK_TYPE_KEY: src[Constants.TASK_TYPE],
+                    BatchBuilder.INITIAL_TOKEN_COUNT_KEY: src[Constants.INITIAL_TOKEN_COUNT],
                 } for src, tgt in
                 zip(data_loader_output, data_loader_output)
             ]
@@ -216,30 +223,33 @@ class BatchBuilder:
             BatchBuilder.FUTURE_MASK_KEY: [],
             BatchBuilder.PADDING_MASK_KEY: [],
             BatchBuilder.TASK_TYPE_KEY: [],
+            BatchBuilder.INITIAL_TOKEN_COUNT_KEY: [],
         }
         for i in range(0, len(next_token_task_corpus), batch_size):
-            input_sentences = [
+            src_batch = [
                 pair.get(BatchBuilder.SOURCE_LANGUAGE_KEY, "")
                 for pair in next_token_task_corpus[i: i + batch_size]
             ]
-            src_batch = BatchBuilder.get_batch_io_parser_output(
-                sentences=input_sentences,
-                add_bos_and_eos=True,
-                max_sequence_length=max_decoder_sequence_length,
-            )
+            # src_batch = BatchBuilder.get_batch_io_parser_output(
+            #     sentences=input_sentences,
+            #     add_bos_and_eos=True,
+            #     max_sequence_length=max_decoder_sequence_length,
+            # )
 
-            output_sentences = [
+            tgt_batch = [
                 pair.get(BatchBuilder.TARGET_LANGUAGE_KEY, "")
                 for pair in next_token_task_corpus[i: i + batch_size]
             ]
-            tgt_batch = BatchBuilder.get_batch_io_parser_output(
-                sentences=output_sentences,
-                add_bos_and_eos=True,
-                max_sequence_length=max_decoder_sequence_length,
-            )
+            # tgt_batch = BatchBuilder.get_batch_io_parser_output(
+            #     sentences=output_sentences,
+            #     add_bos_and_eos=True,
+            #     max_sequence_length=max_decoder_sequence_length,
+            # )
             future_mask = BatchBuilder.construct_future_mask(max_decoder_sequence_length)
             padding_mask = BatchBuilder.construct_padding_mask(src_batch)
             task_type = BatchBuilder.create_task_type_list(next_token_task_corpus[i: i + batch_size])
+            # Initial Token count will only be used in inference when the batch size is only 1
+            initial_token_count = next_token_task_corpus[i][BatchBuilder.INITIAL_TOKEN_COUNT_KEY]
 
             if device is not None:
                 src_batch = src_batch.to(device)  # type: ignore
@@ -252,14 +262,21 @@ class BatchBuilder:
             masks[BatchBuilder.PADDING_MASK_KEY].append(padding_mask)
             masks[BatchBuilder.FUTURE_MASK_KEY].append(future_mask)
             masks[BatchBuilder.TASK_TYPE_KEY].append(task_type)
+            masks[BatchBuilder.INITIAL_TOKEN_COUNT_KEY].append(initial_token_count)
         return batches, masks
 
     @staticmethod
-    def create_generative_training_samples(data_loader_output: List[dict]) -> List[Dict[str, str]]:
+    def create_generative_training_samples(
+            data_loader_output: List[dict],
+            max_decoding_length: int,
+            add_eos: bool,
+    ) -> List[Dict[str, str]]:
         """
         After three words this function will create samples by using 1-3 words as input and 1-4 words as output.
         Which is actually next word prediction. This process will be continued until the whole sentence is covered.
 
+        :param add_eos: Weather to add end of sentence tag or not
+        :param max_decoding_length: max decoding length of the current model
         :param data_loader_output: This is a list of sentences on which the model is to be trained. ie.
         [
            {
@@ -289,25 +306,80 @@ class BatchBuilder:
         samples = []
 
         for data_loader_item in data_loader_output:
-            words = split_string_custom(data_loader_item[Constants.SENTENCE])
-            current_input_word_count = data_loader_item[Constants.INPUT_TOKEN_COUNT]
+            io_parser_output = data_loader_item[Constants.IO_PARSER_OUTPUT]
+            current_input_word_count = data_loader_item[Constants.INITIAL_TOKEN_COUNT]
 
-            for i in range(len(words) - current_input_word_count):
+            for i in range(len(io_parser_output) - current_input_word_count):
+
                 # Input sequence: 1--INPUT_TOKEN_COUNT words
-                input_sequence = " ".join(words[0: i + current_input_word_count])
+                input_sequence = io_parser_output[0: i + current_input_word_count]
+                if input_sequence[-1][Constants.TOKEN] == SpecialTokens.ENDING.value:
+                    break
+
+                input_sequence = BatchBuilder.add_padding_and_eos(
+                    input_sequence,
+                    max_decoding_length,
+                    add_eos,
+                    is_eos_finishing_token=False,
+                )
 
                 # Output sequence: 1--INPUT_TOKEN_COUNT+1 words
-                output_sequence = " ".join(words[0: i + current_input_word_count + 1])
+                output_sequence = io_parser_output[0: i + current_input_word_count + 1]
+                output_sequence = BatchBuilder.add_padding_and_eos(
+                    output_sequence,
+                    max_decoding_length,
+                    False,
+                    is_eos_finishing_token=False,
+                )
 
                 # Add the sample to the list
                 sample = {
                     BatchBuilder.SOURCE_LANGUAGE_KEY: input_sequence,
                     BatchBuilder.TARGET_LANGUAGE_KEY: output_sequence,
-                    BatchBuilder.TASK_TYPE_KEY: data_loader_item[Constants.TASK_TYPE]
+                    BatchBuilder.TASK_TYPE_KEY: data_loader_item[Constants.TASK_TYPE],
+                    BatchBuilder.INITIAL_TOKEN_COUNT_KEY: data_loader_item[Constants.INITIAL_TOKEN_COUNT],
                 }
                 samples.append(sample)
 
         return samples
+
+    @staticmethod
+    def add_padding_and_eos(
+            io_parser_output: list[dict],
+            max_decoding_length: int,
+            add_bos_and_eos: bool,
+            is_eos_finishing_token: bool = False,
+    ) -> list[dict]:
+        """Add padding and eos to the generated samples in case of generative training
+
+        :param io_parser_output:
+        :param max_decoding_length:
+        :param add_bos_and_eos:
+        :param is_eos_finishing_token:
+        :return:
+        """
+        if add_bos_and_eos and max_decoding_length is not None and is_eos_finishing_token:
+            max_decoding_length = max_decoding_length - 1
+        if add_bos_and_eos and not is_eos_finishing_token:
+            io_parser_output.append(
+                Utility.get_special_token(len(io_parser_output), SpecialTokens.MASK_TOKEN)
+            )
+        if max_decoding_length is not None:
+            current_length = len(io_parser_output)
+            if current_length >= max_decoding_length:
+                # Truncate if result length is greater than the max length
+                io_parser_output = io_parser_output[:max_decoding_length]
+            else:
+                num_padding = max_decoding_length - current_length
+                for i in range(num_padding):
+                    io_parser_output.append(
+                        Utility.get_special_token(current_length + i, SpecialTokens.PADDING)
+                    )
+        if add_bos_and_eos and is_eos_finishing_token:
+            io_parser_output.append(
+                Utility.get_special_token(len(io_parser_output), SpecialTokens.MASK_TOKEN)
+            )
+        return io_parser_output
 
     @staticmethod
     def get_next_token_prediction_task_corpus():
@@ -424,175 +496,35 @@ class BatchBuilder:
 class TestUtils(unittest.TestCase):
 
     def test_create_generative_training_samples(self):
-        data_loader_output = [
-            {
-                "inputStr": "##multiplication(107.23600916441234,784.625535184504)",
-                "outputStr": "107.23600916441234 times 784.625535184504 equals?",
-                "taskType": "func_to_nl_translation",
-                "sentence": "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504 equals?",
-                "ioParserOutput": [
-                    {
-                        "token": "<BOS>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 0
-                    },
-                    {
-                        "token": "<function MathFunctions.multiplication at 0x1168b3880>",
-                        "category": {
-                            "type": "function",
-                            "subType": "float",
-                            "subSubType": "execute"
-                        },
-                        "position": 1
-                    },
-                    {
-                        "token": 107.23600916441234,
-                        "category": {
-                            "type": "float",
-                            "subType": "default",
-                            "subSubType": "param_one"
-                        },
-                        "position": 2
-                    },
-                    {
-                        "token": 784.625535184504,
-                        "category": {
-                            "type": "float",
-                            "subType": "default",
-                            "subSubType": "param_last"
-                        },
-                        "position": 3
-                    },
-                    {
-                        "token": "=",
-                        "category": {
-                            "type": "word",
-                            "subType": "default",
-                            "subSubType": "none"
-                        },
-                        "position": 4
-                    },
-                    {
-                        "token": 107.23600916441234,
-                        "category": {
-                            "type": "float",
-                            "subType": "default",
-                            "subSubType": "none"
-                        },
-                        "position": 5
-                    },
-                    {
-                        "token": "times",
-                        "category": {
-                            "type": "word",
-                            "subType": "default",
-                            "subSubType": "none"
-                        },
-                        "position": 6
-                    },
-                    {
-                        "token": 784.625535184504,
-                        "category": {
-                            "type": "float",
-                            "subType": "default",
-                            "subSubType": "none"
-                        },
-                        "position": 7
-                    },
-                    {
-                        "token": "equals?",
-                        "category": {
-                            "type": "word",
-                            "subType": "default",
-                            "subSubType": "none"
-                        },
-                        "position": 8
-                    },
-                    {
-                        "token": "<EOS>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 9
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 10
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 11
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 12
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 13
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 14
-                    },
-                    {
-                        "token": "<PAD>",
-                        "category": {
-                            "type": "special",
-                            "subType": "word",
-                            "subSubType": "none"
-                        },
-                        "position": 15
-                    }
-                ],
-                "inputTokenCount": 2
-            }
-        ]
-        generative_samples = BatchBuilder.create_generative_training_samples(data_loader_output)
-        expected_result = [
-            {BatchBuilder.SOURCE_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) =",
-             BatchBuilder.TARGET_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234"},
-            {
-                BatchBuilder.SOURCE_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234",
-                BatchBuilder.TARGET_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times"},
-            {
-                BatchBuilder.SOURCE_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times",
-                BatchBuilder.TARGET_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504"},
-            {
-                BatchBuilder.SOURCE_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504",
-                BatchBuilder.TARGET_LANGUAGE_KEY: "##multiplication(107.23600916441234,784.625535184504) = 107.23600916441234 times 784.625535184504 equals?"},
-        ]
+        from data_loader.data_loader import DataLoader
+
+        data_loader = DataLoader()
+        batch_size = 2
+        max_decoding_length = 16
+        task_generator_indexes = [3]
+        generator_range = 2
+        number_of_batch = generator_range * len(task_generator_indexes)
+        seed = 42
+
+        data_loader_result = data_loader.create_data_loader_output(
+            batch_size=batch_size,
+            number_of_batch=number_of_batch,
+            add_bos_and_eos=True,
+            max_sequence_length=max_decoding_length,
+            task_generator_indexes=task_generator_indexes,
+            generator_indexes=[i for i in range(generator_range)],
+            identifier=0,
+            shuffle=True,
+            seed=seed,
+        )
+        generative_samples = BatchBuilder.create_generative_training_samples(
+            data_loader_result,
+            max_decoding_length,
+            add_eos=True
+        )
+        print(generative_samples)
+        # This test will fail by design, please check the printed generative_samples
+        expected_result = []
         self.assertEqual(generative_samples, expected_result)
 
     def test_get_sentence_io_parser_output(self):

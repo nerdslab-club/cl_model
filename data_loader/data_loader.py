@@ -42,11 +42,13 @@ class DataLoader:
             generator_indexes: list[int] | None = None,
             identifier: int | None = None,
             shuffle: bool = False,
+            seed: int = 42,
     ) -> list[dict]:
         """This function will concat the inputStr and outputStr and create a sentence on which the generative
         Curious learner model is to be trained, It will also include the input_token_count to the dictionary
         which is to be used as a dynamic value during training for the input.
 
+        :param seed: seed for generating random indexes
         :param shuffle: shuffle the list before return is true.
         :param batch_size: Size of the batch
         :param number_of_batch: The number of batch we need. batch_size * number_of_batch == count
@@ -66,6 +68,7 @@ class DataLoader:
             generator_indexes,
             identifier,
             shuffle,
+            seed,
         )
         for data in data_loader_output:
             self.create_sentence_using_input_and_output(data)
@@ -75,6 +78,11 @@ class DataLoader:
                 max_sequence_length,
             )
             data[Constants.INPUT_TOKEN_COUNT] = len(split_string_custom(data['inputStr'])) + 1
+            for io_parser_item in data[Constants.IO_PARSER_OUTPUT]:
+                token: any = io_parser_item[Constants.TOKEN]
+                position: int = io_parser_item[Constants.POSITION]
+                if token in self.catalyst_list:
+                    data[Constants.INITIAL_TOKEN_COUNT] = position + 1
         return data_loader_output
 
 
@@ -118,15 +126,46 @@ class DataLoaderTest(unittest.TestCase):
         data_loader = DataLoader()
         result = data_loader.create_data_loader_output(
             batch_size=40,
-            number_of_batch=1000,
+            number_of_batch=392,
             add_bos_and_eos=True,
             max_sequence_length=16,
             task_generator_indexes=[0, 1, 2, 3],
             generator_indexes=[i for i in range(98)],
             identifier=0,
             shuffle=True,
+            seed=42
         )
-        self.assertEqual(len(result), 40000)
+        print(result)
+        self.assertEqual(len(result), 15680)
+
+    def test_create_data_loader_output_shuffle(self):
+        data_loader = DataLoader()
+        result = data_loader.create_data_loader_output(
+            batch_size=2,
+            number_of_batch=8,
+            add_bos_and_eos=True,
+            max_sequence_length=16,
+            task_generator_indexes=[0, 1, 2, 3],
+            generator_indexes=[0, 1],
+            identifier=0,
+            shuffle=True,
+            seed=42
+        )
+        print(f'Result one: \n {result}')
+        result_one = data_loader.create_data_loader_output(
+            batch_size=2,
+            number_of_batch=8,
+            add_bos_and_eos=True,
+            max_sequence_length=16,
+            task_generator_indexes=[0, 1, 2, 3],
+            generator_indexes=[0, 1],
+            identifier=0,
+            shuffle=True,
+            seed=42
+        )
+        print(f'Result two: \n {result_one}')
+        self.assertEqual(result, result_one)
+
 
 
 if __name__ == "__main__":

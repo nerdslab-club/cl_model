@@ -164,11 +164,10 @@ class PreTrainerUtils:
     def add_prediction_to_truncated_list(
             predicted_io_parser_output: list[list[dict[str, any]]],
             truncated_src_batch: list[list[dict[str, any]]],
+            predicted_index: int,
     ) -> list[list[dict[str, any]]]:
         for pred_list, src_list in zip(predicted_io_parser_output, truncated_src_batch):
-            if pred_list:
-                last_dict_in_pred = pred_list[-1]
-                src_list.append(last_dict_in_pred)
+            src_list.append(pred_list[predicted_index])
         return truncated_src_batch
 
     @staticmethod

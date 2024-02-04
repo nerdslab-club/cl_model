@@ -12,6 +12,8 @@ from cl_pretrainer.lr_scheduler import NoamOpt
 from cl_pretrainer.pre_trainer_checkpoint_manager import ClPreTrainerCheckPointManager
 from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
 from data_loader.data_loader import DataLoader
+from evaluation_metric.bleu import calculate_corpus_bleu_score, get_n_gram_weights
+from response_parser.response_parser import ResponseParser
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
@@ -69,6 +71,7 @@ def cl_pre_trainer_train(
                 batch_io_parser_output=src_batch,
                 task_types=task_types,
                 future_mask=future_mask,
+                src_padding_mask=padding_mask,
             )
 
             category_probability, category_logits = model.category_map_classification_head.forward(e_one)
@@ -96,6 +99,7 @@ def cl_pre_trainer_train(
                 batch_io_parser_output=src_batch,
                 task_types=task_types,
                 future_mask=future_mask,
+                src_padding_mask=padding_mask,
             )
 
             # As predicting proper category is the responsibility of the left side.
@@ -150,8 +154,8 @@ def cl_pre_trainer_train(
                     output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY] = 0
                     output_logits_map[index] = output_logits_item
 
-
             print_model_training_status(
+                [sequence_list[1:] for sequence_list in tgt_batch],
                 batch_category_accuracy,
                 batch_category_loss,
                 batches,
@@ -171,6 +175,8 @@ def cl_pre_trainer_train(
                 total_loss = sum(combined_output_losses)
                 total_loss.backward()
                 scheduler.step()
+                if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0:
+                    print(f"Current learning rate is {scheduler.get_current_rate()} and running rate is {scheduler.get_rate()}")
                 scheduler.optimizer.zero_grad()
             num_iters += 1
             # batch
@@ -209,6 +215,7 @@ def save_best_model(best_accuracy, epoch, model, scheduler, total_accuracy):
 
 
 def print_model_training_status(
+        target_batch,
         batch_category_accuracy,
         batch_category_loss,
         batches,
@@ -237,6 +244,7 @@ def print_model_training_status(
             print(f"Predicted category probability values:"
                   f" {predicted_category_map}")
 
+            predicted_tokens_map = {}
             for index, output_logits_item in output_logits_map.items():
                 current_head_output_probability = output_logits_item[CategoryRouter.OUTPUT_PROBABILITY]
                 current_head_output_probability = current_head_output_probability[:, :-1]
@@ -246,6 +254,33 @@ def print_model_training_status(
                 )
                 print(f"Predicted token values for index: {index} is \n"
                       f"{current_head_predicted_output_token}")
+
+                if not is_training:
+                    # Get the output token classification vocab item from index
+                    current_output_token_classification_head_vocab_item = \
+                        output_vocab_builder.index_to_output_vocabularies[index][
+                            OutputVocabBuilder.OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM]
+
+                    # Add item to predicted tokens map using the output token classification head vocab item as key
+                    predicted_tokens_map[current_output_token_classification_head_vocab_item] = {
+                        OutputVocabBuilder.PREDICTED_TOKEN_KEY: current_head_predicted_output_token,
+                        OutputVocabBuilder.INDEX: index,
+                    }
+            if not is_training:
+                predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output_hub(predicted_category_map,
+                                                                                           predicted_tokens_map,
+                                                                                           start_from=1)
+                parsed_response_list = ResponseParser.parse_corpus_io_parser_output(predicted_io_parser_output)
+                print(f"Response parser output is: {parsed_response_list} ")
+
+                target_batch_extracted_token = PreTrainerUtils.extract_tokens(target_batch)
+                predicted_batch_extracted_token = PreTrainerUtils.extract_tokens(predicted_io_parser_output)
+                bleu_score = calculate_corpus_bleu_score(
+                    target_batch_extracted_token,
+                    predicted_batch_extracted_token,
+                    bleu_weights=get_n_gram_weights(2),
+                )
+                print(f"BLEU Score is: {bleu_score}")
         print("\n")
 
 
@@ -258,26 +293,34 @@ class TestClPreTrainerTraining(unittest.TestCase):
     def test_cl_pre_trainer_train_and_save(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         print(f'Selected Device: {device}')
+        # Hyperparameters
         n_epochs = 40
-        batch_size = 2
+        batch_size = 2 if device == torch.device("cpu") else 4
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
         num_layers = 2
         dropout_p = 0.1
         max_decoding_length = 16
+        task_generator_indexes = [3]
+        generator_range = 2 if device == torch.device("cpu") else 10
+        number_of_batch = generator_range * len(task_generator_indexes)
+        seed = 42
+        add_bos_and_eos = True
 
         # Initializing the data loader
         data_loader = DataLoader()
+
         data_loader_result = data_loader.create_data_loader_output(
             batch_size=batch_size,
-            number_of_batch=4,
-            add_bos_and_eos=True,
+            number_of_batch=number_of_batch,
+            add_bos_and_eos=add_bos_and_eos,
             max_sequence_length=max_decoding_length,
-            task_generator_indexes=[2, 3],
-            generator_indexes=[0],
+            task_generator_indexes=task_generator_indexes,
+            generator_indexes=[i for i in range(generator_range)],
             identifier=0,
             shuffle=True,
+            seed=seed,
         )
         print(data_loader_result)
         corpus_io_parser_output = [item[Constants.IO_PARSER_OUTPUT] for item in data_loader_result]
@@ -305,7 +348,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
             data_loader_result,
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
-            is_generative_training=False,
+            is_generative_training=True,
+            add_bos_and_eos=add_bos_and_eos
         )
         print(f"Number of batch available is: {len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY])}\n")
         # Initializing the CL pre trainer
@@ -329,9 +373,10 @@ class TestClPreTrainerTraining(unittest.TestCase):
         )
         scheduler = NoamOpt(
             cl_pre_trainer.hidden_dim,
-            factor=1,
-            warmup=400,
+            factor=0.01,
+            warmup=160,
             optimizer=optimizer,
+            max_rate=0.00002
         )
 
         category_criterion = PreTrainerUtils.get_category_criterion(
@@ -351,7 +396,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             masks=masks,
             n_epochs=n_epochs,
             is_training=True,
-            verbose_log=True,
+            verbose_log=False,
             category_criterion=category_criterion,
             output_criterion_map=output_criterion_map,
             patience=80,
@@ -379,27 +424,36 @@ class TestClPreTrainerTraining(unittest.TestCase):
     def test_cl_pre_trainer_model_load(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         print(f'Selected Device: {device}')
-        n_epochs = 40
-        batch_size = 2
+
+        # Hyperparameters
+        batch_size = 2 if device == torch.device("cpu") else 4
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
         num_layers = 2
         dropout_p = 0.1
         max_decoding_length = 16
+        task_generator_indexes = [3]
+        generator_range = 2 if device == torch.device("cpu") else 10
+        number_of_batch = generator_range * len(task_generator_indexes)
+        seed = 42
+        add_bos_and_eos = True
 
         # Initializing the data loader
         data_loader = DataLoader()
+
         data_loader_result = data_loader.create_data_loader_output(
             batch_size=batch_size,
-            number_of_batch=4,
-            add_bos_and_eos=True,
+            number_of_batch=number_of_batch,
+            add_bos_and_eos=add_bos_and_eos,
             max_sequence_length=max_decoding_length,
-            task_generator_indexes=[2, 3],
-            generator_indexes=[0],
+            task_generator_indexes=task_generator_indexes,
+            generator_indexes=[i for i in range(generator_range)],
             identifier=0,
             shuffle=True,
+            seed=seed,
         )
+        print(data_loader_result)
         corpus_io_parser_output = [item[Constants.IO_PARSER_OUTPUT] for item in data_loader_result]
         # Initialize category vocabulary builder instance
         category_vocab_builder = CategoryVocabBuilder(corpus_io_parser_output)
@@ -425,6 +479,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
             is_generative_training=False,
+            add_bos_and_eos=add_bos_and_eos,
         )
         # Initializing the CL pre trainer
         cl_pre_trainer = ClPreTrainer(
@@ -449,7 +504,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
 
         # Load the model...
         checkpoint_map = ClPreTrainerCheckPointManager.load_checkpoint_map(
-            TestClPreTrainerTraining.BEST_PATH
+            TestClPreTrainerTraining.PATH
         )
         # Load CL-Pre-Trainer states
         cl_pre_trainer.load_saved_model_from_state_dict(
@@ -482,9 +537,10 @@ class TestClPreTrainerTraining(unittest.TestCase):
 
         scheduler = NoamOpt(
             cl_pre_trainer.hidden_dim,
-            factor=1,
-            warmup=400,
+            factor=0.01,
+            warmup=160,
             optimizer=optimizer,
+            max_rate=0.00002
         )
 
         category_criterion = PreTrainerUtils.get_category_criterion(

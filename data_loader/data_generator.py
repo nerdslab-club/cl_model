@@ -25,11 +25,13 @@ class DataGenerator:
             generator_indexes: list[int] | None = None,
             identifier: int | None = None,
             shuffle: bool = False,
+            seed: int = 42,
     ) -> list[dict]:
         """
         This function generates sample for training either randomly or in a paginated way if task_generator_index,
         generator_index and identifier is provided
 
+        :param seed: seed for generating random indexes
         :param shuffle: shuffle the list before return is true.
         :param batch_size: Size of the batch
         :param number_of_batch: The number of batch we need.
@@ -68,6 +70,7 @@ class DataGenerator:
             samples.extend(samples_from_this_generator)
 
         if shuffle:
+            random.seed(seed)
             random.shuffle(samples)
         return samples
 

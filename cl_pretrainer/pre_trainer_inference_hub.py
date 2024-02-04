@@ -1,5 +1,5 @@
 # complete this first
-
+import copy
 import unittest
 from typing import List, Dict, Any
 
@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 from category_router.category_router import CategoryRouter
-from cl_data.src.constants import Constants
+from cl_data.src.constants import Constants, SpecialTokens
 from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.cl_pre_trainer import ClPreTrainer
 from cl_pretrainer.pre_trainer_checkpoint_manager import ClPreTrainerCheckPointManager
@@ -33,17 +33,25 @@ def cl_pre_trainer_inference_hub(
     output_logits_map_batches = []
     model.train(False)
     num_iters = 0
-    for i, (src_batch, padding_mask, tgt_batch, future_mask, task_types) in enumerate(
+    for i, (src_batch, padding_mask, tgt_batch, future_mask, task_types, initial_token_count) in enumerate(
             zip(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY],
                 masks[BatchBuilder.PADDING_MASK_KEY],
                 batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY],
                 masks[BatchBuilder.FUTURE_MASK_KEY],
                 masks[BatchBuilder.TASK_TYPE_KEY],
+                masks[BatchBuilder.INITIAL_TOKEN_COUNT_KEY],
                 )
     ):
         # Initially we need at least 4 words for predicting the next word
-        current_sequence_length = 6
+        current_sequence_length = initial_token_count
         truncated_src_batch = [sequence_list[:current_sequence_length] for sequence_list in src_batch]
+        truncated_src_batch_input = copy.deepcopy(truncated_src_batch)
+        truncated_src_batch_input = [BatchBuilder.add_padding_and_eos(
+            sequence_list,
+            max_decoding_length,
+            add_bos_and_eos=True,
+            is_eos_finishing_token=False,
+        ) for sequence_list in truncated_src_batch_input]
         # truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length)
 
         output_logits_map = {}
@@ -53,7 +61,7 @@ def cl_pre_trainer_inference_hub(
             try:
                 # ~~~~~~~~~~~~~~~~~~~~~~~~~ Compute category probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 e_one = model.category_map_decoder.forward(
-                    batch_io_parser_output=truncated_src_batch,
+                    batch_io_parser_output=truncated_src_batch_input,
                     task_types=task_types,
                     # future_mask=truncated_future_mask,
                 )
@@ -65,7 +73,7 @@ def cl_pre_trainer_inference_hub(
 
                 # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 e_two = model.output_token_decoder.forward(
-                    batch_io_parser_output=truncated_src_batch,
+                    batch_io_parser_output=truncated_src_batch_input,
                     task_types=task_types,
                     # future_mask=truncated_future_mask,
                 )
@@ -112,15 +120,28 @@ def cl_pre_trainer_inference_hub(
                                                                                            predicted_tokens_map,
                                                                                            start_from=1)
 
-                truncated_src_batch = PreTrainerUtils.add_prediction_to_truncated_list(predicted_io_parser_output,
-                                                                                       truncated_src_batch)
+                truncated_src_batch = PreTrainerUtils.add_prediction_to_truncated_list(
+                    predicted_io_parser_output,
+                    truncated_src_batch,
+                    current_sequence_length - 1 + index,
+                )
+                truncated_src_batch_input = copy.deepcopy(truncated_src_batch)
+                truncated_src_batch_input = [BatchBuilder.add_padding_and_eos(
+                    sequence_list,
+                    max_decoding_length,
+                    add_bos_and_eos=True,
+                    is_eos_finishing_token=False,
+                ) for sequence_list in truncated_src_batch_input]
+
+                if truncated_src_batch[0][-1][Constants.TOKEN] == SpecialTokens.ENDING.value:
+                    break
                 # truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length + index + 1)
 
             except Exception as e:
                 print(f"An error occurred for batch: {i} word: {index} error: {e}")
 
         # Removing <BOS> from both tgt and predicted sentences
-        tgt_batch = [sequence_list[1:] for sequence_list in tgt_batch]
+        tgt_batch = [sequence_list[1:len(truncated_src_batch[i])] for i, sequence_list in enumerate(tgt_batch)]
         truncated_src_batch = [sequence_list[1:] for sequence_list in truncated_src_batch]
         print(f"Target batch: {tgt_batch}")
         print(f"Predicted batch: {truncated_src_batch}")
@@ -175,32 +196,45 @@ def calculate_bleu_score(target_batches: List[List[List[dict]]], predicted_batch
 
 
 class TestClPreTrainerInference(unittest.TestCase):
-    PATH = "./saved_models/cl_pre_trainer_one.pth"
+    PATH = "./saved_models/cl_pre_trainer_generative_best.pth"
     accepted_loss_threshold = 0.09
     accepted_accuracy_threshold = 0.99
 
     def test_cl_pre_trainer_model_load_and_inference(self):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
-        batch_size = 2
+        print(f'Selected Device: {device}')
+
+        # Hyperparameters
+        batch_size = 2 if device == torch.device("cpu") else 4
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
         num_layers = 2
         dropout_p = 0.1
         max_decoding_length = 16
+        task_generator_indexes = [3]
+        generator_range = 2 if device == torch.device("cpu") else 10
+        number_of_batch = generator_range * len(task_generator_indexes)
+        seed = 42
+        add_bos_and_eos = True
 
         # Initializing the data loader
         data_loader = DataLoader()
+
         data_loader_result = data_loader.create_data_loader_output(
             batch_size=batch_size,
-            number_of_batch=4,
-            add_bos_and_eos=True,
+            number_of_batch=number_of_batch,
+            add_bos_and_eos=add_bos_and_eos,
             max_sequence_length=max_decoding_length,
-            task_generator_indexes=[2, 3],
-            generator_indexes=[0],
+            task_generator_indexes=task_generator_indexes,
+            generator_indexes=[i for i in range(generator_range)],
             identifier=0,
             shuffle=True,
+            seed=seed,
         )
+        print(data_loader_result)
+        batch_size = 1
+
         corpus_io_parser_output = [item[Constants.IO_PARSER_OUTPUT] for item in data_loader_result]
 
         # Initialize category vocabulary builder instance
@@ -227,6 +261,7 @@ class TestClPreTrainerInference(unittest.TestCase):
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
             is_generative_training=False,
+            add_bos_and_eos=add_bos_and_eos,
         )
         # Initializing the CL pre trainer
         cl_pre_trainer = ClPreTrainer(
