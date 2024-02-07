@@ -116,6 +116,7 @@ class ResponseParser:
                 # Extract the relevant portion of the list using slicing
                 params_io_parser_output = f_io_parser_output[index + 1:i + 1]
                 params_to_pass = [item[Constants.TOKEN] for item in params_io_parser_output]
+                params_to_pass = ResponseParser.process_params(params_to_pass)
 
                 if function_action == CategorySubSubType.EXECUTE.value:
                     if not isinstance(current_function_to_execute, types.FunctionType):
@@ -154,6 +155,20 @@ class ResponseParser:
                 copied_list.insert(0, current_item)
 
             return ResponseParser.get_function_token(copied_list)
+
+    @staticmethod
+    def process_params(params_to_pass):
+        # Iterating over the values in params_to_pass
+        for i in range(len(params_to_pass)):
+            value = params_to_pass[i]
+
+            # Checking if the value is a string starting with "[" and ending with "]"
+            if isinstance(value, str) and value.startswith("[") and value.endswith("]"):
+                # Casting the string to a list and replacing the value in the original list
+                new_list = eval(value)  # Using eval to safely convert the string to a list
+                params_to_pass[i] = new_list
+
+        return params_to_pass
 
     @staticmethod
     def get_enum_item(str_value, my_enum):

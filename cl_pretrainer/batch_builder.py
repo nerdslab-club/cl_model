@@ -307,7 +307,12 @@ class BatchBuilder:
 
         for data_loader_item in data_loader_output:
             io_parser_output = data_loader_item[Constants.IO_PARSER_OUTPUT]
-            current_input_word_count = data_loader_item[Constants.INITIAL_TOKEN_COUNT]
+            try:
+                current_input_word_count = data_loader_item[Constants.INITIAL_TOKEN_COUNT]
+            except Exception as e:
+                print(data_loader_item)
+                print(e)
+
 
             for i in range(len(io_parser_output) - current_input_word_count):
 

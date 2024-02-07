@@ -118,13 +118,17 @@ class OutputVocabBuilder:
         vocab_items = self.encode_io_parser_item_into_output_vocab_item(io_parser_output)
         for classification_head_item, token in vocab_items:
             output_vocabulary = self.output_token_classification_head_vocab_item_to_output_vocabularies[classification_head_item]
+            # TODO as we are converting list to string in the response parser this need to be reverted
+            if isinstance(token, list):
+                token = str(token)
+            current_token = output_vocabulary[OutputVocabBuilder.OUTPUT_TO_INDEX][token]
             if is_only_probability:
-                result.append(output_vocabulary[OutputVocabBuilder.OUTPUT_TO_INDEX][token])
+                result.append(current_token)
             else:
                 result.append(
                     (
                         output_vocabulary[OutputVocabBuilder.INDEX],
-                        output_vocabulary[OutputVocabBuilder.OUTPUT_TO_INDEX][token]
+                        current_token,
                     ),
                 )
         return result
