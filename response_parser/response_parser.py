@@ -9,6 +9,7 @@ from cl_data.src.constants import Constants, CategoryType, CategorySubType, Cate
 
 
 class ResponseParser:
+    ERROR = 'ERROR'
 
     @staticmethod
     def parse_sentence_io_parser_output(sentence_io_parser_output: list[dict]) -> str:
@@ -26,25 +27,17 @@ class ResponseParser:
                 f_io_parser_output, last_index = ResponseParser.find_valid_function(
                     sentence_io_parser_output, i
                 )
+                if last_index == -1:
+                    return ' '.join(sentence_response_parser_output)
                 result_token = ResponseParser.get_function_token(f_io_parser_output)
                 sentence_response_parser_output.append(str(result_token))
+                if result_token == ResponseParser.ERROR:
+                    return ' '.join(sentence_response_parser_output)
                 i = last_index
             elif category_type == CategoryType.SPECIAL.value:
                 i += 1
                 continue
-            elif category_type == CategoryType.WORD.value:
-                if ResponseParser.is_valid_data_token(category_sub_type):
-                    sentence_response_parser_output.append(str(token))
-            elif category_type == CategoryType.INTEGER.value:
-                if ResponseParser.is_valid_data_token(category_sub_type):
-                    sentence_response_parser_output.append(str(token))
-            elif category_type == CategoryType.FLOAT.value:
-                if ResponseParser.is_valid_data_token(category_sub_type):
-                    sentence_response_parser_output.append(str(token))
-            elif category_type == CategoryType.BOOL.value:
-                if ResponseParser.is_valid_data_token(category_sub_type):
-                    sentence_response_parser_output.append(str(token))
-            elif category_type == CategoryType.LIST.value:
+            else:
                 if ResponseParser.is_valid_data_token(category_sub_type):
                     sentence_response_parser_output.append(str(token))
             i += 1
@@ -68,6 +61,7 @@ class ResponseParser:
 
     @staticmethod
     def find_valid_function(lst: list[dict], start_from=0) -> Tuple[List[dict], int]:
+        # TODO fix error here // infinity loop
         stack = []
 
         for i in range(start_from, len(lst)):
@@ -121,19 +115,27 @@ class ResponseParser:
                 if function_action == CategorySubSubType.EXECUTE.value:
                     if not isinstance(current_function_to_execute, types.FunctionType):
                         print(f"ResponseParser the converted type of token is {type(current_function_to_execute)} with value {current_function_to_execute}")
-                        current_function_to_execute = FunctionManager().get_name_to_reference().get("nOtMyToKeN")
-                        result = current_function_to_execute()
+                        # current_function_to_execute = FunctionManager().get_name_to_reference().get("nOtMyToKeN")
+                        # result = current_function_to_execute()
+                        return ResponseParser.ERROR
                     else:
-                        result = current_function_to_execute(*params_to_pass)
+                        try:
+                            result = current_function_to_execute(*params_to_pass)
+                        except Exception as e:
+                            print(f"An error occurred while executing function: {current_function_to_execute} with param: {params_to_pass}, error: {e}")
+                            return ResponseParser.ERROR
                 # function_action == CategorySubSubType.REPRESENT.value
                 # function_action == CategorySubSubType.PLACEHOLDER.value
                 else:
                     if not isinstance(current_function_to_execute, types.FunctionType):
                         print(f"ResponseParser the converted type of token is {type(current_function_to_execute)} with value {current_function_to_execute}")
-                        current_function_to_execute = FunctionManager().get_name_to_reference().get("nOtMyToKeN")
-                    name_of_function = FunctionManager.get_name_of_function(current_function_to_execute)
-                    comma_separated_params = ', '.join(str(item) for item in params_to_pass)
-                    result = f"{name_of_function}({comma_separated_params})"
+                        # current_function_to_execute = FunctionManager().get_name_to_reference().get("nOtMyToKeN")
+                        # name_of_function = FunctionManager.get_name_of_function(current_function_to_execute)
+                        return ResponseParser.ERROR
+                    else:
+                        name_of_function = FunctionManager.get_name_of_function(current_function_to_execute)
+                        comma_separated_params = ', '.join(str(item) for item in params_to_pass)
+                        result = f"{name_of_function}({comma_separated_params})"
 
                 if len(stack) == 0:
                     return result

@@ -80,7 +80,7 @@ def get_target_tokens_probability(
 
         batch_predicted_probabilities.append(sentence_predicted_probabilities)
 
-    print(batch_predicted_probabilities)
+    # print(batch_predicted_probabilities)
     return batch_predicted_probabilities
 
 

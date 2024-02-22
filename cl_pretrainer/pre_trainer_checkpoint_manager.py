@@ -56,7 +56,8 @@ class ClPreTrainerCheckPointManager:
 
     @staticmethod
     def load_checkpoint_map(path: str) -> dict:
-        return torch.load(path)
+        device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
+        return torch.load(path, map_location=device)
 
     @staticmethod
     def get_checkpoint_item(checkpoint_map: dict, item_key: str):

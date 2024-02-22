@@ -16,6 +16,7 @@ from data_loader.data_loader import DataLoader
 from evaluation_metric.bleu import get_n_gram_weights, calculate_corpus_bleu_score
 from evaluation_metric.perplexity import get_target_tokens_probability, calculate_batch_perplexity
 from response_parser.response_parser import ResponseParser
+from response_parser.simple_response_parser import SimpleResponseParser
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
@@ -68,8 +69,8 @@ def cl_pre_trainer_inference_hub(
 
                 category_probability, category_logits = model.category_map_classification_head.forward(e_one)
                 predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
-                print(f"Predicted category probability values:"
-                      f" {predicted_category_map}")
+                # print(f"Predicted category probability values:"
+                #       f" {predicted_category_map}")
 
                 # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 e_two = model.output_token_decoder.forward(
@@ -100,8 +101,8 @@ def cl_pre_trainer_inference_hub(
                         output_classification_head_index,
                         current_head_output_probability.tolist(),
                     )
-                    print(f"Predicted token values for index: {output_classification_head_index} is \n"
-                          f"{current_head_predicted_output_token}")
+                    # print(f"Predicted token values for index: {output_classification_head_index} is \n"
+                    #       f"{current_head_predicted_output_token}")
 
                     # Get the output token classification vocab item from index
                     current_output_token_classification_head_vocab_item = \
@@ -113,7 +114,7 @@ def cl_pre_trainer_inference_hub(
                         OutputVocabBuilder.PREDICTED_TOKEN_KEY: current_head_predicted_output_token,
                         OutputVocabBuilder.INDEX: output_classification_head_index,
                     }
-                print("\n")
+                # print("\n")
 
                 # Removed the teacher forcing and added the prediction to the src batch
                 predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output_hub(predicted_category_map,
@@ -143,12 +144,12 @@ def cl_pre_trainer_inference_hub(
         # Removing <BOS> from both tgt and predicted sentences
         tgt_batch = [sequence_list[1:len(truncated_src_batch[i])] for i, sequence_list in enumerate(tgt_batch)]
         truncated_src_batch = [sequence_list[1:] for sequence_list in truncated_src_batch]
-        print(f"Target batch: {tgt_batch}")
-        print(f"Predicted batch: {truncated_src_batch}")
         target_batches.append(tgt_batch)
         predicted_batches.append(truncated_src_batch)
         output_logits_map_batches.append(output_logits_map)
         num_iters += 1
+        if num_iters == 16:
+            break
         # break
 
     calculate_bleu_score(target_batches, predicted_batches)
@@ -192,11 +193,18 @@ def calculate_bleu_score(target_batches: List[List[List[dict]]], predicted_batch
             predicted_batch_extracted_token,
             bleu_weights=get_n_gram_weights(2),
         )
+        # Printing the raw response
+        print("Target batch: \n")
+        deep_copied_tgt_list = copy.deepcopy(target_batch)
+        SimpleResponseParser.print_response_to_console(deep_copied_tgt_list)
+        print("Predicted batch: \n")
+        deep_copied_predicted_list = copy.deepcopy(predicted_batch)
+        SimpleResponseParser.print_response_to_console(deep_copied_predicted_list)
         print(f"BLEU Score of the {batch_index} th corpus is: {bleu_score}")
 
 
 class TestClPreTrainerInference(unittest.TestCase):
-    PATH = "./saved_models/cl_pre_trainer_generative_best.pth"
+    PATH = "./saved_models/cl_pre_trainer_generative_best_v4.pth"
     accepted_loss_threshold = 0.09
     accepted_accuracy_threshold = 0.99
 
@@ -204,19 +212,34 @@ class TestClPreTrainerInference(unittest.TestCase):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         print(f'Selected Device: {device}')
 
+        # # Hyperparameters
+        # batch_size = 2 if device == torch.device("cpu") else 4
+        # num_heads = 8
+        # hidden_dim = 768
+        # ff_dim = 2048
+        # num_layers = 2
+        # dropout_p = 0.1
+        # max_decoding_length = 16
+        # task_generator_indexes = [3]
+        # generator_range = 2 if device == torch.device("cpu") else 10
+        # number_of_batch = generator_range * len(task_generator_indexes)
+        # seed = 42
+        # add_bos_and_eos = True
+
         # Hyperparameters
-        batch_size = 2 if device == torch.device("cpu") else 4
+        batch_size = 4 if device == torch.device("cpu") else 4
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
-        num_layers = 2
+        num_layers = 6
         dropout_p = 0.1
-        max_decoding_length = 16
-        task_generator_indexes = [3]
-        generator_range = 2 if device == torch.device("cpu") else 10
+        max_decoding_length = 24
+        task_generator_indexes = [0, 1, 2]
+        generator_range = 20 if device == torch.device("cpu") else 20
         number_of_batch = generator_range * len(task_generator_indexes)
         seed = 42
         add_bos_and_eos = True
+        training_batch_size = 1
 
         # Initializing the data loader
         data_loader = DataLoader()
@@ -232,8 +255,8 @@ class TestClPreTrainerInference(unittest.TestCase):
             shuffle=True,
             seed=seed,
         )
-        print(data_loader_result)
-        batch_size = 1
+        # print(data_loader_result)
+        batch_size = training_batch_size
 
         corpus_io_parser_output = [item[Constants.IO_PARSER_OUTPUT] for item in data_loader_result]
 
