@@ -79,82 +79,82 @@ class BatchBuilder:
         )
 
     # TODO deprecated method delete afterward.
-    # @staticmethod
-    # def construct_batches_for_cl_pre_trainer(
-    #         corpus: List[str],
-    #         batch_size: int,
-    #         max_decoder_sequence_length: int,
-    #         device: Optional[torch.device] = None,
-    #         is_generative_training=False,
-    # ) -> Tuple[Dict[str, list[list[list[dict]]]], Dict[str, List[torch.Tensor]]]:
-    #     """Constructs batches given sample corpus for cl pre trainer model
-    #
-    #     :param corpus: This is a list of sentences on which the model is to be trained. ie.
-    #     [
-    #        "In the kingdom of Numerosia, where equations adorned the walls and numbers held the key to understanding",
-    #        "lived a passionate mathematician named Mia.",
-    #        "Mia's life was dedicated to unraveling mathematical puzzles",
-    #        "and her reputation extended far beyond the kingdom's borders.",
-    #        "One fateful day, a mysterious messenger delivered an ornate scroll to her doorstep.",
-    #     ]
-    #     :param batch_size: The number of sequences in a batch
-    #     :param max_decoder_sequence_length: Truncate/Allowed max decoder sequence length. If None then no padding.
-    #     :param device: whether to move tensors to gpu
-    #     :param is_generative_training: Flag for generative training like: 0123 -> 01234, 01234 -> 012345 ...
-    #     :return: A tuple containing two dictionaries.
-    #     The first represents the batches, This is batch io parser output.
-    #     Second one represents the attention masks. This is bool Tensor.
-    #     """
-    #     if is_generative_training:
-    #         next_token_task_corpus = BatchBuilder.create_generative_training_samples(corpus)
-    #         print(f"Generative examples: {next_token_task_corpus}\n")
-    #     else:
-    #         next_token_task_corpus = [
-    #             {BatchBuilder.SOURCE_LANGUAGE_KEY: src, BatchBuilder.TARGET_LANGUAGE_KEY: tgt} for src, tgt in
-    #             zip(corpus, corpus)
-    #         ]
-    #     batches: Dict[str, List] = {
-    #         BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY: [],
-    #         BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY: [],
-    #     }
-    #     masks: Dict[str, List] = {
-    #         BatchBuilder.FUTURE_MASK_KEY: [],
-    #         BatchBuilder.PADDING_MASK_KEY: [],
-    #     }
-    #     for i in range(0, len(next_token_task_corpus), batch_size):
-    #         input_sentences = [
-    #             pair.get(BatchBuilder.SOURCE_LANGUAGE_KEY, "")
-    #             for pair in next_token_task_corpus[i: i + batch_size]
-    #         ]
-    #         src_batch = BatchBuilder.get_batch_io_parser_output(
-    #             sentences=input_sentences,
-    #             add_bos_and_eos=True,
-    #             max_sequence_length=max_decoder_sequence_length,
-    #         )
-    #
-    #         output_sentences = [
-    #             pair.get(BatchBuilder.TARGET_LANGUAGE_KEY, "")
-    #             for pair in next_token_task_corpus[i: i + batch_size]
-    #         ]
-    #         tgt_batch = BatchBuilder.get_batch_io_parser_output(
-    #             sentences=output_sentences,
-    #             add_bos_and_eos=True,
-    #             max_sequence_length=max_decoder_sequence_length,
-    #         )
-    #         future_mask = BatchBuilder.construct_future_mask(max_decoder_sequence_length)
-    #         padding_mask = BatchBuilder.construct_padding_mask(src_batch)
-    #
-    #         if device is not None:
-    #             src_batch = src_batch.to(device)  # type: ignore
-    #             tgt_batch = tgt_batch.to(device)  # type: ignore
-    #             future_mask = future_mask.to(device)
-    #             padding_mask = padding_mask.to(device)
-    #
-    #         batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY].append(src_batch)
-    #         batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY].append(tgt_batch)
-    #         masks[BatchBuilder.PADDING_MASK_KEY].append(padding_mask)
-    #         masks[BatchBuilder.FUTURE_MASK_KEY].append(future_mask)
-    #     return batches, masks
+    @staticmethod
+    def construct_batches_for_cl_pre_trainer(
+            corpus: List[str],
+            batch_size: int,
+            max_decoder_sequence_length: int,
+            device: Optional[torch.device] = None,
+            is_generative_training=False,
+    ) -> Tuple[Dict[str, list[list[list[dict]]]], Dict[str, List[torch.Tensor]]]:
+        """Constructs batches given sample corpus for cl pre trainer model
+
+        :param corpus: This is a list of sentences on which the model is to be trained. ie.
+        [
+           "In the kingdom of Numerosia, where equations adorned the walls and numbers held the key to understanding",
+           "lived a passionate mathematician named Mia.",
+           "Mia's life was dedicated to unraveling mathematical puzzles",
+           "and her reputation extended far beyond the kingdom's borders.",
+           "One fateful day, a mysterious messenger delivered an ornate scroll to her doorstep.",
+        ]
+        :param batch_size: The number of sequences in a batch
+        :param max_decoder_sequence_length: Truncate/Allowed max decoder sequence length. If None then no padding.
+        :param device: whether to move tensors to gpu
+        :param is_generative_training: Flag for generative training like: 0123 -> 01234, 01234 -> 012345 ...
+        :return: A tuple containing two dictionaries.
+        The first represents the batches, This is batch io parser output.
+        Second one represents the attention masks. This is bool Tensor.
+        """
+        if is_generative_training:
+            next_token_task_corpus = BatchBuilder.create_generative_training_samples(corpus)
+            print(f"Generative examples: {next_token_task_corpus}\n")
+        else:
+            next_token_task_corpus = [
+                {BatchBuilder.SOURCE_LANGUAGE_KEY: src, BatchBuilder.TARGET_LANGUAGE_KEY: tgt} for src, tgt in
+                zip(corpus, corpus)
+            ]
+        batches: Dict[str, List] = {
+            BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY: [],
+            BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY: [],
+        }
+        masks: Dict[str, List] = {
+            BatchBuilder.FUTURE_MASK_KEY: [],
+            BatchBuilder.PADDING_MASK_KEY: [],
+        }
+        for i in range(0, len(next_token_task_corpus), batch_size):
+            input_sentences = [
+                pair.get(BatchBuilder.SOURCE_LANGUAGE_KEY, "")
+                for pair in next_token_task_corpus[i: i + batch_size]
+            ]
+            src_batch = BatchBuilder.get_batch_io_parser_output(
+                sentences=input_sentences,
+                add_bos_and_eos=True,
+                max_sequence_length=max_decoder_sequence_length,
+            )
+
+            output_sentences = [
+                pair.get(BatchBuilder.TARGET_LANGUAGE_KEY, "")
+                for pair in next_token_task_corpus[i: i + batch_size]
+            ]
+            tgt_batch = BatchBuilder.get_batch_io_parser_output(
+                sentences=output_sentences,
+                add_bos_and_eos=True,
+                max_sequence_length=max_decoder_sequence_length,
+            )
+            future_mask = BatchBuilder.construct_future_mask(max_decoder_sequence_length)
+            padding_mask = BatchBuilder.construct_padding_mask(src_batch)
+
+            if device is not None:
+                src_batch = src_batch.to(device)  # type: ignore
+                tgt_batch = tgt_batch.to(device)  # type: ignore
+                future_mask = future_mask.to(device)
+                padding_mask = padding_mask.to(device)
+
+            batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY].append(src_batch)
+            batches[BatchBuilder.DECODER_IO_PARSER_OUTPUT_KEY].append(tgt_batch)
+            masks[BatchBuilder.PADDING_MASK_KEY].append(padding_mask)
+            masks[BatchBuilder.FUTURE_MASK_KEY].append(future_mask)
+        return batches, masks
 
     @staticmethod
     def construct_batches_for_cl_pre_trainer_with_data_loader(
