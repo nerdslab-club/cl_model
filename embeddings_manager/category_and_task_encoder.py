@@ -229,10 +229,10 @@ class CategoryAndTaskEncoder:
         return token_embedding + categorical_embedding[: token_embedding.size(0)]
 
     @staticmethod
-    def plot_provider_signal(desired_length: int, provided_signal: Tensor):
+    def plot_provider_signal(desired_length: int, provided_signal: Tensor, title: str):
         plt.figure(figsize=(10, 6))
         plt.plot(np.linspace(0, 1, desired_length), provided_signal)
-        plt.title("Provider Modulated Signal")
+        plt.title(title)
         plt.xlabel("Time")
         plt.ylabel("Amplitude")
         plt.grid()
@@ -246,7 +246,7 @@ class CategoryAndTaskEncoder:
         return frequency_embedding
 
     @staticmethod
-    def plot_provider_signal_fft(sample_rate: int, provider_signal: Tensor):
+    def plot_provider_signal_fft(sample_rate: int, provider_signal: Tensor, title: str):
         signal_np = provider_signal.numpy()
         fft_result = np.fft.fft(signal_np)
         # Calculate the corresponding frequencies
@@ -254,7 +254,7 @@ class CategoryAndTaskEncoder:
         # Plot the FFT magnitude
         plt.figure(figsize=(10, 6))
         plt.plot(frequencies, np.abs(fft_result))
-        plt.title("FFT Magnitude")
+        plt.title(title)
         plt.xlabel("Frequency")
         plt.ylabel("Magnitude")
         plt.grid()
@@ -279,13 +279,14 @@ if __name__ == "__main__":
         categorical_embedding
     )
     print(f"frequency embedding shape: {frequency_embedding.shape}")
-    CategoryAndTaskEncoder.plot_provider_signal(768, frequency_embedding)
+    CategoryAndTaskEncoder.plot_provider_signal(768, categorical_embedding, "Category and Task Embedding Graph")
+    CategoryAndTaskEncoder.plot_provider_signal_fft(1024, categorical_embedding, "Category and Task Embedding Fast Fourier Transform Graph")
 
     combined_signal = category_and_task_encoder.forward(
         token_embedding, category_map, task_type
     )
     print(f"combined signal shape: {combined_signal.shape}")
-    CategoryAndTaskEncoder.plot_provider_signal(768, combined_signal)
+    CategoryAndTaskEncoder.plot_provider_signal(768, combined_signal, "Combined Embedding Graph")
 
     # CategoryAndTaskEncoder.plot_provider_signal(768, frequency_embedding)
-    CategoryAndTaskEncoder.plot_provider_signal_fft(1024, combined_signal)
+    CategoryAndTaskEncoder.plot_provider_signal_fft(1024, combined_signal, "Combined Embedding Fast Fourier Transform Graph")

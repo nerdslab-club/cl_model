@@ -11,11 +11,13 @@ from cl_pretrainer.cl_pre_trainer import ClPreTrainer
 from cl_pretrainer.lr_scheduler import NoamOpt
 from cl_pretrainer.pre_trainer_checkpoint_manager import ClPreTrainerCheckPointManager
 from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
+from cl_pretrainer.writer_utils import WriterUtils
 from data_loader.data_loader import DataLoader
 from evaluation_metric.bleu import calculate_corpus_bleu_score, get_n_gram_weights
 from response_parser.response_parser import ResponseParser
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
+from torch.utils.tensorboard import SummaryWriter
 
 CURRENT_BATCH_OUTPUT_LOSS = "current_batch_output_loss"
 CURRENT_BATCH_OUTPUT_ACCURACY = "current_batch_output_accuracy"
@@ -38,6 +40,7 @@ def cl_pre_trainer_train(
         only_language_training=0,
         device: torch.device = torch.device('cpu')
 ):
+    writer = SummaryWriter('./tensorboard/train')
     model.train(is_training)
     if not is_training:
         n_epochs = 1
@@ -89,7 +92,6 @@ def cl_pre_trainer_train(
             # Rough estimate of per-token accuracy in the current training batch
             batch_category_accuracy = (torch.sum(
                 category_logits.argmax(dim=-1) == tgt_category_probability)) / torch.numel(tgt_category_probability)
-
             total_accuracy += batch_category_accuracy
 
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -155,6 +157,7 @@ def cl_pre_trainer_train(
                     output_logits_map[index] = output_logits_item
 
             print_model_training_status(
+                writer,
                 [sequence_list[1:] for sequence_list in tgt_batch],
                 batch_category_accuracy,
                 batch_category_loss,
@@ -175,14 +178,26 @@ def cl_pre_trainer_train(
                 total_loss = sum(combined_output_losses)
                 total_loss.backward()
                 scheduler.step()
+                writer.add_scalar(WriterUtils.LEARNING_RATE, scheduler.get_current_rate(), num_iters)
                 if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0:
-                    print(f"Current learning rate is {scheduler.get_current_rate()} and running rate is {scheduler.get_rate()}")
+                    print(
+                        f"Current learning rate is {scheduler.get_current_rate()} and running rate is {scheduler.get_rate()}")
                 scheduler.optimizer.zero_grad()
             num_iters += 1
             # batch
 
         # Saving the best model ...
         best_accuracy = save_best_model(best_accuracy, epoch, model, scheduler, total_accuracy)
+
+        # Adding average loss and accuracy per epoch to writer
+        total_count = len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) * \
+                      (len(category_vocab_builder.index_to_output_token_classification_head_vocab_item.keys()) + 1)
+        writer.add_scalar(WriterUtils.AVG_LOSS_TAG,
+                          round(total_accuracy / total_count),
+                          epoch*len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]))
+        writer.add_scalar(WriterUtils.AVG_ACCURACY_TAG,
+                          round(total_loss / total_count),
+                          epoch*len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]))
 
         # Applying early stopping using the total loss ...
         if total_loss < best_loss:
@@ -215,6 +230,7 @@ def save_best_model(best_accuracy, epoch, model, scheduler, total_accuracy):
 
 
 def print_model_training_status(
+        writer,
         target_batch,
         batch_category_accuracy,
         batch_category_loss,
@@ -227,17 +243,32 @@ def print_model_training_status(
         output_logits_map,
         output_vocab_builder,
         verbose_log):
-    if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0 or not is_training:
+    # if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0 or not is_training:
+    if num_iters % 10 == 0 or not is_training:
         print(
-            f"epoch: {e}, num_iters: {num_iters}, "
+            f"epoch: {e}, num_iters: {num_iters},"
             f"batch_category_loss: {batch_category_loss}, batch_category_accuracy: {batch_category_accuracy}"
         )
+        writer.add_scalar(WriterUtils.CATEGORY_MAP_LOSS_TAG, batch_category_loss, num_iters)
+        writer.add_scalar(WriterUtils.CATEGORY_MAP_ACCURACY_TAG, batch_category_accuracy, num_iters)
+
         for index, output_logits_item in output_logits_map.items():
+            # Get the output token classification vocab item from index
+            current_output_token_classification_head_vocab_item = \
+                output_vocab_builder.index_to_output_vocabularies[index][
+                    OutputVocabBuilder.OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM]
+
             output_loss = output_logits_item[CURRENT_BATCH_OUTPUT_LOSS]
             print(f"output loss for index: {index} is {output_loss}")
-        for index, output_logits_item in output_logits_map.items():
+            writer.add_scalar(
+                WriterUtils.get_output_head_loss_tag(index, current_output_token_classification_head_vocab_item),
+                output_loss, num_iters)
+
             output_accuracy = output_logits_item[CURRENT_BATCH_OUTPUT_ACCURACY]
             print(f"output accuracy for index: {index} is {output_accuracy}")
+            writer.add_scalar(
+                WriterUtils.get_output_head_accuracy_tag(index, current_output_token_classification_head_vocab_item),
+                output_accuracy, num_iters)
 
         if verbose_log:
             predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
@@ -302,7 +333,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
         num_layers = 2
         dropout_p = 0.1
         max_decoding_length = 16
-        task_generator_indexes = [0,1,2,3]
+        task_generator_indexes = [0, 1, 2, 3]
         generator_range = 2 if device == torch.device("cpu") else 10
         number_of_batch = generator_range * len(task_generator_indexes)
         seed = 42
