@@ -7,6 +7,9 @@ class WriterUtils:
     CATEGORY_MAP_LOSS_TAG = 'Loss: Category Map'
     CATEGORY_MAP_ACCURACY_TAG = 'Accuracy: Category Map'
     LEARNING_RATE = 'Learning Rate'
+    INFERENCE_BATCH_ACCURACY = 'Accuracy: Inference Batch'
+    BLEU_SCORE = 'BLEU Score: Inference Batch'
+    PERPLEXITY_SCORE = 'Perplexity Score: Inference Batch'
 
     @staticmethod
     def get_output_head_loss_tag(head_no: int, info: OutputTokenClassificationHeadVocabItem) -> str:

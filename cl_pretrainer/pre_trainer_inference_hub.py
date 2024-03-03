@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 
 import torch
 from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 
 from category_router.category_router import CategoryRouter
 from cl_data.src.constants import Constants, SpecialTokens
@@ -12,13 +13,14 @@ from cl_pretrainer.batch_builder import BatchBuilder
 from cl_pretrainer.cl_pre_trainer import ClPreTrainer
 from cl_pretrainer.pre_trainer_checkpoint_manager import ClPreTrainerCheckPointManager
 from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
+from cl_pretrainer.writer_utils import WriterUtils
 from data_loader.data_loader import DataLoader
 from evaluation_metric.bleu import get_n_gram_weights, calculate_corpus_bleu_score
 from evaluation_metric.perplexity import get_target_tokens_probability, calculate_batch_perplexity
 from response_parser.response_parser import ResponseParser
 from response_parser.simple_response_parser import SimpleResponseParser
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
-from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
+from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder, OutputVocabItem
 
 
 def cl_pre_trainer_inference_hub(
@@ -29,6 +31,7 @@ def cl_pre_trainer_inference_hub(
         masks: Dict[str, List[torch.Tensor]],
         max_decoding_length: int,
 ):
+    writer = SummaryWriter('./tensorboard/inference')
     target_batches = []
     predicted_batches = []
     output_logits_map_batches = []
@@ -152,7 +155,7 @@ def cl_pre_trainer_inference_hub(
             break
         # break
 
-    calculate_bleu_score(target_batches, predicted_batches)
+    calculate_bleu_score(target_batches, predicted_batches, writer)
     calculate_perplexity_score(target_batches, output_logits_map_batches, output_vocab_builder)
     print_response(predicted_batches)
     print("DONE")
@@ -160,14 +163,19 @@ def cl_pre_trainer_inference_hub(
 
 def print_response(predicted_batches: List[List[List[dict]]]):
     for index, batch in enumerate(predicted_batches):
-        parsed_response_list = ResponseParser.parse_corpus_io_parser_output(batch)
-        print(f"For batch: {index}\n Parser response list is: {parsed_response_list} ")
+        parsed_response_list_with_execution = ResponseParser.parse_corpus_io_parser_output(batch, make_execute_represent=False)
+        parsed_response_list_without_execution = ResponseParser.parse_corpus_io_parser_output(batch, make_execute_represent=True)
+        print(f"For batch: {index}\n "
+              f"Parser response list is with execution: {parsed_response_list_with_execution} \n"
+              f"Parser response list is without execution: {parsed_response_list_without_execution}\n"
+              )
 
 
 def calculate_perplexity_score(
         target_batches: List[List[List[dict]]],
         output_logits_map_batches: List[dict[int, dict[str, Any]]],
         output_vocab_builder: OutputVocabBuilder,
+        writer: SummaryWriter,
 ):
     for batch_index, (target_batch, output_logits_map) in enumerate(zip(target_batches, output_logits_map_batches)):
         target_batch_extracted_token = PreTrainerUtils.extract_tokens(target_batch)
@@ -180,19 +188,48 @@ def calculate_perplexity_score(
             target_batch_extracted_token,
             batch_predicted_probabilities
         )
+        writer.add_scalar(WriterUtils.PERPLEXITY_SCORE,
+                          perplexity_score,
+                          batch_index)
         print(f"Perplexity Score of the {batch_index} th corpus is: {perplexity_score}")
 
 
-def calculate_bleu_score(target_batches: List[List[List[dict]]], predicted_batches: List[List[List[dict]]]):
+def calculate_accuracy(target_batch: List[List[dict]], predicted_batch: List[List[dict]], batch_index: int,
+                       writer: SummaryWriter):
+    batch_accuracies = []
+    for sentence_index, (target_sentence, predicted_sentence) in enumerate(zip(target_batch, predicted_batch)):
+        correct_predictions = 0
+        total_predictions = 0
+        for word_index, (target_word, predicted_word) in enumerate(zip(target_sentence, predicted_sentence)):
+            target_output_vocab = OutputVocabItem(target_word[Constants.TOKEN])
+            predicted_output_vocab = OutputVocabItem(predicted_word[Constants.TOKEN])
+            total_predictions += 1
+            if target_output_vocab == predicted_output_vocab:
+                correct_predictions += 1
+            current_sentence_accuracy = (correct_predictions / total_predictions) * 100
+            batch_accuracies.append(current_sentence_accuracy)
+
+    inference_batch_accuracy = sum(batch_accuracies)/len(target_batch)
+    writer.add_scalar(WriterUtils.INFERENCE_BATCH_ACCURACY,
+                      inference_batch_accuracy,
+                      batch_index)
+
+
+def calculate_bleu_score(target_batches: List[List[List[dict]]], predicted_batches: List[List[List[dict]]],
+                         writer: SummaryWriter):
     for batch_index, (target_batch, predicted_batch) in enumerate(zip(target_batches, predicted_batches)):
         target_batch_extracted_token = PreTrainerUtils.extract_tokens(target_batch)
         predicted_batch_extracted_token = PreTrainerUtils.extract_tokens(predicted_batch)
+        calculate_accuracy(target_batch, predicted_batch, batch_index, writer)
 
         bleu_score = calculate_corpus_bleu_score(
             target_batch_extracted_token,
             predicted_batch_extracted_token,
             bleu_weights=get_n_gram_weights(2),
         )
+        writer.add_scalar(WriterUtils.BLEU_SCORE,
+                          bleu_score,
+                          batch_index)
         # Printing the raw response
         print("Target batch: \n")
         deep_copied_tgt_list = copy.deepcopy(target_batch)

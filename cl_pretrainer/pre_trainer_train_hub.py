@@ -302,7 +302,8 @@ def print_model_training_status(
                 predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output_hub(predicted_category_map,
                                                                                            predicted_tokens_map,
                                                                                            start_from=1)
-                parsed_response_list = ResponseParser.parse_corpus_io_parser_output(predicted_io_parser_output)
+                parsed_response_list = ResponseParser.parse_corpus_io_parser_output(predicted_io_parser_output,
+                                                                                    make_execute_represent=True)
                 print(f"Response parser output is: {parsed_response_list} ")
 
                 target_batch_extracted_token = PreTrainerUtils.extract_tokens(target_batch)

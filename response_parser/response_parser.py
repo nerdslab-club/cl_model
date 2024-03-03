@@ -5,14 +5,14 @@ from typing import Tuple, List
 from cl_data.function_representation.src.functions_manager import FunctionManager
 from cl_data.function_representation.src.math_functions import MathFunctions
 from cl_data.io_parser.category_parser_utility import create_category_map
-from cl_data.src.constants import Constants, CategoryType, CategorySubType, CategorySubSubType
+from cl_data.src.constants import Constants, CategoryType, CategorySubType, CategorySubSubType, FunctionPrefix
 
 
 class ResponseParser:
     ERROR = 'ERROR'
 
     @staticmethod
-    def parse_sentence_io_parser_output(sentence_io_parser_output: list[dict]) -> str:
+    def parse_sentence_io_parser_output(sentence_io_parser_output: list[dict], make_execute_represent: bool) -> str:
         sentence_response_parser_output = []
         i = 0
         while i < len(sentence_io_parser_output):
@@ -22,6 +22,11 @@ class ResponseParser:
             category_map: dict = io_parser_item[Constants.CATEGORY]
             category_type: str = category_map[Constants.CATEGORY_TYPE]
             category_sub_type: str = category_map[Constants.CATEGORY_SUB_TYPE]
+            category_sub_sub_type: str = category_map[Constants.CATEGORY_SUB_SUB_TYPE]
+
+            if category_sub_sub_type == CategorySubSubType.EXECUTE.value and make_execute_represent:
+                category_sub_sub_type = CategorySubSubType.REPRESENT.value
+                sentence_io_parser_output[i][Constants.CATEGORY][Constants.CATEGORY_SUB_SUB_TYPE] = category_sub_sub_type
 
             if category_type == CategoryType.FUNCTION.value:
                 f_io_parser_output, last_index = ResponseParser.find_valid_function(
@@ -45,11 +50,11 @@ class ResponseParser:
         return ' '.join(sentence_response_parser_output)
 
     @staticmethod
-    def parse_corpus_io_parser_output(corpus_io_parser_output: list[list[dict]]) -> list[str]:
+    def parse_corpus_io_parser_output(corpus_io_parser_output: list[list[dict]], make_execute_represent: bool) -> list[str]:
         corpus_response_parser_output = []
         for sentence_io_parser_output in corpus_io_parser_output:
             corpus_response_parser_output.append(
-                ResponseParser.parse_sentence_io_parser_output(sentence_io_parser_output)
+                ResponseParser.parse_sentence_io_parser_output(sentence_io_parser_output, make_execute_represent)
             )
         return corpus_response_parser_output
 
@@ -387,12 +392,20 @@ class ResponseParserTest(unittest.TestCase):
         self.assertEqual(result_token, 3.0)
 
     def test_parse_sentence_io_parser_output(self):
-        result = ResponseParser.parse_sentence_io_parser_output(ResponseParserTest.batch_io_parser_output[0])
-        print(f"Sentence response parser output: \n{result}")
-        self.assertEqual(result, 'The average of 2 , 3 , 4 is = 3.0')
+        result_with_execution = ResponseParser.parse_sentence_io_parser_output(
+            ResponseParserTest.batch_io_parser_output[0],
+            make_execute_represent=False,
+        )
+        result_without_execution = ResponseParser.parse_sentence_io_parser_output(
+            ResponseParserTest.batch_io_parser_output[0],
+            make_execute_represent=True,
+        )
+        print(f"Response parser output with execution: \n{result_with_execution}")
+        print(f"Response parser output without execution: \n{result_without_execution} \n")
+        self.assertEqual(result_with_execution, 'The average of 2 , 3 , 4 is = 3.0')
 
     def test_parse_corpus_io_parser_output(self):
-        result = ResponseParser.parse_corpus_io_parser_output(ResponseParserTest.batch_io_parser_output)
+        result = ResponseParser.parse_corpus_io_parser_output(ResponseParserTest.batch_io_parser_output, make_execute_represent=False)
         print(result)
         self.assertEqual(result, ResponseParserTest.batch_response_parser_output)
 
