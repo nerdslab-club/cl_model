@@ -4,7 +4,6 @@ from typing import Dict, List, Tuple, Optional
 import torch
 
 from cl_data.io_parser.io_parser import IoParser
-from cl_data.io_parser.io_parser_utility import split_string_custom
 from cl_data.src.constants import Constants, SpecialTokens
 from cl_data.src.utility import Utility
 
@@ -204,7 +203,7 @@ class BatchBuilder:
                 max_decoder_sequence_length,
                 add_bos_and_eos,
             )
-            print(f"Generative examples: {next_token_task_corpus}\n")
+            # print(f"Generative examples: {next_token_task_corpus}\n")
         else:
             next_token_task_corpus = [
                 {
@@ -310,9 +309,9 @@ class BatchBuilder:
             try:
                 current_input_word_count = data_loader_item[Constants.INITIAL_TOKEN_COUNT]
             except Exception as e:
-                print(data_loader_item)
-                print(e)
-
+                print(
+                    f'Error occurred in create_generative_training_samples function for item: {data_loader_item} '
+                    f'error: {e}')
 
             for i in range(len(io_parser_output) - current_input_word_count):
 

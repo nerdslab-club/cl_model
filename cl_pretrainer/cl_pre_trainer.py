@@ -11,6 +11,7 @@ from cl_pretrainer.category_map_classification_head import CategoryMapClassifica
 from cl_pretrainer.category_map_decoder import CategoryMapDecoder
 from cl_pretrainer.output_token_decoder import OutputTokenDecoder
 from cl_pretrainer.pre_trainer_utils import PreTrainerUtils
+from cl_pretrainer.tokenizer import Tokenizer
 from embeddings_manager.embeddings_manager import EmbeddingsManager
 from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
 from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
@@ -27,7 +28,8 @@ class ClPreTrainer(nn.Module):
             max_decoding_length: int,
             dropout_p: float,
             category_vocab_size: int,
-            index_to_output_vocabularies: dict[int, dict]
+            output_vocab_builder: OutputVocabBuilder,
+            use_our_tokenizer: bool = False,
     ):
         super().__init__()
         self.batch_size = batch_size
@@ -38,8 +40,14 @@ class ClPreTrainer(nn.Module):
         self.max_decoding_length = max_decoding_length
         self.dropout_p = dropout_p
         self.category_vocab_size = category_vocab_size
-        self.index_to_output_vocabularies = index_to_output_vocabularies
         self.device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
+        self.output_vocab_builder = output_vocab_builder
+        self.use_our_tokenizer = use_our_tokenizer
+
+        self.index_to_output_vocabularies = output_vocab_builder.index_to_output_vocabularies
+        token_vocab_size = Tokenizer.get_token_vocab_size(self.index_to_output_vocabularies)
+        # print(f"Token vocab size: {token_vocab_size}")
+        embedding_layer = nn.Embedding(token_vocab_size, hidden_dim)
 
         # Creating embeddings manager instance
         self.embeddings_manager = EmbeddingsManager(
@@ -47,6 +55,9 @@ class ClPreTrainer(nn.Module):
             n_heads=num_heads,
             max_sequence_length=max_decoding_length,
             with_mask=False,
+            embedding_layer=embedding_layer,
+            output_vocab_builder=output_vocab_builder,
+            use_our_tokenizer=use_our_tokenizer,
         )
 
         # Creating category map decoder instance
@@ -170,7 +181,7 @@ class TestClPreTrainer(unittest.TestCase):
                 max_decoding_length=max_decoding_length,
                 dropout_p=dropout_p,
                 category_vocab_size=category_vocab_size,
-                index_to_output_vocabularies=output_vocabularies,
+                output_vocab_builder=output_vocab_builder,
             )
             cl_pre_trainer.eval()
 

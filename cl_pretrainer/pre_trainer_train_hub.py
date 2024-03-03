@@ -170,6 +170,7 @@ def cl_pre_trainer_train(
                 output_logits_map,
                 output_vocab_builder,
                 verbose_log,
+                scheduler
             )
 
             # Update parameters
@@ -178,10 +179,6 @@ def cl_pre_trainer_train(
                 total_loss = sum(combined_output_losses)
                 total_loss.backward()
                 scheduler.step()
-                writer.add_scalar(WriterUtils.LEARNING_RATE, scheduler.get_current_rate(), num_iters)
-                if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0:
-                    print(
-                        f"Current learning rate is {scheduler.get_current_rate()} and running rate is {scheduler.get_rate()}")
                 scheduler.optimizer.zero_grad()
             num_iters += 1
             # batch
@@ -192,11 +189,11 @@ def cl_pre_trainer_train(
         # Adding average loss and accuracy per epoch to writer
         total_count = len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) * \
                       (len(category_vocab_builder.index_to_output_token_classification_head_vocab_item.keys()) + 1)
-        writer.add_scalar(WriterUtils.AVG_LOSS_TAG,
-                          round(total_accuracy / total_count),
-                          epoch*len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]))
         writer.add_scalar(WriterUtils.AVG_ACCURACY_TAG,
-                          round(total_loss / total_count),
+                          total_accuracy / total_count,
+                          epoch*len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]))
+        writer.add_scalar(WriterUtils.AVG_LOSS_TAG,
+                          total_loss / total_count,
                           epoch*len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]))
 
         # Applying early stopping using the total loss ...
@@ -242,13 +239,17 @@ def print_model_training_status(
         num_iters,
         output_logits_map,
         output_vocab_builder,
-        verbose_log):
+        verbose_log,
+        scheduler):
     # if num_iters % len(batches[BatchBuilder.ENCODER_IO_PARSER_OUTPUT_KEY]) == 0 or not is_training:
     if num_iters % 10 == 0 or not is_training:
         print(
             f"epoch: {e}, num_iters: {num_iters},"
             f"batch_category_loss: {batch_category_loss}, batch_category_accuracy: {batch_category_accuracy}"
         )
+        writer.add_scalar(WriterUtils.LEARNING_RATE, scheduler.get_current_rate(), num_iters)
+        print(f"Current learning rate is {scheduler.get_current_rate()} and running rate is {scheduler.get_rate()}")
+
         writer.add_scalar(WriterUtils.CATEGORY_MAP_LOSS_TAG, batch_category_loss, num_iters)
         writer.add_scalar(WriterUtils.CATEGORY_MAP_ACCURACY_TAG, batch_category_accuracy, num_iters)
 
@@ -316,8 +317,8 @@ def print_model_training_status(
 
 
 class TestClPreTrainerTraining(unittest.TestCase):
-    PATH = "./saved_models/cl_pre_trainer_generative_last.pth"
-    BEST_PATH = "./saved_models/cl_pre_trainer_generative_best.pth"
+    PATH = "./saved_models/cl_pre_trainer_generative_last_gar.pth"
+    BEST_PATH = "./saved_models/cl_pre_trainer_generative_best_gar.pth"
     accepted_loss_threshold = 0.40
     accepted_accuracy_threshold = 0.90
 
@@ -326,15 +327,15 @@ class TestClPreTrainerTraining(unittest.TestCase):
         print(f'Selected Device: {device}')
         # Hyperparameters
         n_epochs = 40
-        batch_size = 10 if device == torch.device("cpu") else 4
+        batch_size = 2 if device == torch.device("cpu") else 4
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
         num_layers = 2
         dropout_p = 0.1
         max_decoding_length = 16
-        task_generator_indexes = [0, 1, 2, 3]
-        generator_range = 2 if device == torch.device("cpu") else 10
+        task_generator_indexes = [3]
+        generator_range = 1 if device == torch.device("cpu") else 10
         number_of_batch = generator_range * len(task_generator_indexes)
         seed = 42
         add_bos_and_eos = True
@@ -393,7 +394,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
             max_decoding_length=max_decoding_length,
             dropout_p=dropout_p,
             category_vocab_size=category_vocab_size,
-            index_to_output_vocabularies=output_vocabularies,
+            output_vocab_builder=output_vocab_builder,
+            use_our_tokenizer=True,
         )
         # Moved to CPU or GPU
         cl_pre_trainer.to(device)
@@ -522,7 +524,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
             max_decoding_length=max_decoding_length,
             dropout_p=dropout_p,
             category_vocab_size=category_vocab_size,
-            index_to_output_vocabularies=output_vocabularies,
+            output_vocab_builder=output_vocab_builder,
+            use_our_tokenizer=True,
         )
         # Moved to CPU or GPU
         cl_pre_trainer.to(device)

@@ -48,13 +48,13 @@ class OutputVocabBuilder:
                 OutputVocabBuilder.INDEX: index,
                 OutputVocabBuilder.OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM: output_token_classification_head_vocab_item,
                 OutputVocabBuilder.INDEX_TO_OUTPUT: {
-                    Constants.NOT_MY_TOKEN_INDEX: Constants.NOT_MY_TOKEN,
+                    Constants.NOT_MY_TOKEN_INDEX: OutputVocabItem(Constants.NOT_MY_TOKEN),
                 },
                 OutputVocabBuilder.INDEX_TO_COUNT: {
                     Constants.NOT_MY_TOKEN_INDEX: 1,
                 },
                 OutputVocabBuilder.OUTPUT_TO_INDEX: {
-                    Constants.NOT_MY_TOKEN: Constants.NOT_MY_TOKEN_INDEX,
+                    OutputVocabItem(Constants.NOT_MY_TOKEN): Constants.NOT_MY_TOKEN_INDEX,
                 },
             }
             self.index_to_output_vocabularies[index] = output_vocabulary_item
@@ -227,5 +227,5 @@ class OutputVocabBuilder:
                 category_type=category_map.get(Constants.CATEGORY_TYPE),
                 category_subtype=category_map.get(Constants.CATEGORY_SUB_TYPE),
             )
-            tokens.append((classification_head_item, token))
+            tokens.append((classification_head_item, OutputVocabItem(token)))
         return tokens

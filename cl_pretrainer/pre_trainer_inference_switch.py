@@ -156,7 +156,8 @@ class TestClPreTrainerInference(unittest.TestCase):
             max_decoding_length=max_decoding_length,
             dropout_p=dropout_p,
             category_vocab_size=category_vocab_size,
-            index_to_output_vocabularies=output_vocabularies,
+            output_vocab_builder=output_vocab_builder,
+            use_our_tokenizer=True,
         )
         cl_pre_trainer.eval()
 

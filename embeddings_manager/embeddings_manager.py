@@ -1,15 +1,19 @@
 import types
 
 import torch
-from torch import Tensor
+from torch import Tensor, nn
+from torch.nn import Embedding
 
-from cl_data.function_representation.src.math_functions import MathFunctions
+from cl_pretrainer.batch_builder import BatchBuilder
+from cl_pretrainer.tokenizer import Tokenizer
 from embeddings_manager.initial_function_encoder import InitialFunctionEncoder
 from embeddings_manager.alibibi_positional_encoder import ALiBiBiEncoder
 from embeddings_manager.category_and_task_encoder import CategoryAndTaskEncoder
 from embeddings_manager.initial_word_encoder import InitialWordEncoder
 from cl_data.src.constants import CategoryType, Constants, CategorySubSubType
 from cl_data.function_representation.src.functions_manager import FunctionManager
+from vocabulary_builder.category_vocabulary_builder import CategoryVocabBuilder
+from vocabulary_builder.output_vocabulary_builder import OutputVocabBuilder
 
 
 class EmbeddingsManager:
@@ -31,7 +35,14 @@ class EmbeddingsManager:
     TASK_TYPE = "TT"
 
     def __init__(
-            self, batch_size: int, n_heads: int, max_sequence_length: int, with_mask: bool
+            self,
+            batch_size: int,
+            n_heads: int,
+            max_sequence_length: int,
+            with_mask: bool,
+            embedding_layer: Embedding,
+            output_vocab_builder: OutputVocabBuilder,
+            use_our_tokenizer: bool = False,
     ):
         self.initial_word_encoder = InitialWordEncoder()
         self.initial_function_encoder = InitialFunctionEncoder()
@@ -41,13 +52,20 @@ class EmbeddingsManager:
         self.n_heads = n_heads
         self.max_sequence_length = max_sequence_length
         self.with_mask = with_mask
+        self.embedding_layer = embedding_layer
+        self.output_vocab_builder = output_vocab_builder
+        self.use_our_tokenizer = use_our_tokenizer
         self.device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
 
     def get_batch_combined_embeddings(
-            self, batch_io_parser_output: list[list[dict]], task_type: list[str]
+            self,
+            batch_io_parser_output: list[list[dict]],
+            task_type: list[str],
     ) -> Tensor:
         """Batch of the io parser output, it converts every io parser item into it's combined embedding
 
+        use_our_tokenizer: Flag for whether to use our own tokenizer
+        output_vocab_builder: This is the output vocab builder instance
         :param batch_io_parser_output: batch of io_parser_output
         :param task_type: Type of task. ie: func_to_nl_translation.
         :return: Return the combined embeddings of list of sentence.
@@ -58,7 +76,8 @@ class EmbeddingsManager:
         )
         for index, io_parser_output in enumerate(batch_io_parser_output):
             item_tensors = self.get_sentence_combined_embeddings(
-                io_parser_output, task_type[index]
+                io_parser_output,
+                task_type[index],
             )
             batch_item_tensors = torch.cat(
                 (batch_item_tensors, item_tensors.unsqueeze(0)), dim=0
@@ -66,10 +85,14 @@ class EmbeddingsManager:
         return batch_item_tensors
 
     def get_sentence_combined_embeddings(
-            self, io_parser_output: list[dict], task_type: str
+            self,
+            io_parser_output: list[dict],
+            task_type: str,
     ) -> Tensor:
         """Given the io parser output it convert every io parser item into it's combined embedding
 
+        use_our_tokenizer: Flag for whether to use our own tokenizer
+        output_vocab_builder: This is the output vocab builder instance
         :param io_parser_output: input string -> io parser
         [
              {
@@ -103,6 +126,7 @@ class EmbeddingsManager:
             token_embedding = self.get_token_embedding(
                 token,
                 category_type,
+                io_parser_output_item,
             )
             category_and_task_embedding = self.get_category_and_task_embedding(
                 category_map,
@@ -195,7 +219,9 @@ class EmbeddingsManager:
             token_embedding = self.get_token_embedding(
                 token,
                 category_type,
+                io_parser_output_item
             ).to(self.device)
+
             category_and_task_embedding = self.get_category_and_task_embedding(
                 category_map,
                 task_type,
@@ -241,6 +267,7 @@ class EmbeddingsManager:
                 io_parser_output_item[Constants.CATEGORY],
                 io_parser_output_item[Constants.POSITION],
                 task_type,
+                io_parser_output_item,
             )
             embedding_maps.append(current_embeddings_map)
         return embedding_maps
@@ -251,6 +278,7 @@ class EmbeddingsManager:
             category_map: dict,
             position: int,
             task_type: str,
+            io_parser_output_item: dict
     ) -> dict:
         # {
         # 'token': <function MathFunctions.addition at 0x11645a8c0>,
@@ -265,7 +293,7 @@ class EmbeddingsManager:
             Constants.CATEGORY_TYPE,
             CategoryType.WORD.value,
         )
-        token_embedding = self.get_token_embedding(token, category_type)
+        token_embedding = self.get_token_embedding(token, category_type, io_parser_output_item)
         category_and_task_embedding = self.get_category_and_task_embedding(
             category_map,
             task_type,
@@ -301,14 +329,30 @@ class EmbeddingsManager:
     def get_token_embedding(self,
                             token: any,
                             category_type: str,
+                            io_parser_output_item: dict,
                             show_progress_bar: bool = False) -> Tensor:
         if category_type == CategoryType.FUNCTION.value:
             token = FunctionManager.get_doc_string_of_function(token)
-        return self.initial_word_encoder.get_sentence_embedding(
-            str(token),
-            True,
-            show_progress_bar=show_progress_bar
-        )
+
+        if self.use_our_tokenizer:
+            # print(f'Current io_parser_output_item is: {io_parser_output_item}')
+            current_token_index = Tokenizer.get_index_of_token(
+                    output_vocab_builder=self.output_vocab_builder,
+                    io_parser_output_item=io_parser_output_item,
+                )
+            # print(f'Current token index: {current_token_index}')
+            current_tensor = torch.tensor(current_token_index, dtype=torch.long)
+
+            # print(f'Current embedded tensor is: {current_tensor}')
+            return self.embedding_layer.forward(
+                current_tensor
+            )
+        else:
+            return self.initial_word_encoder.get_sentence_embedding(
+                str(token),
+                True,
+                show_progress_bar=show_progress_bar
+            )
 
     def get_category_and_task_embedding(
             self,
@@ -413,77 +457,50 @@ class EmbeddingsManager:
 
 
 if __name__ == "__main__":
-    item = [
-        {
-            "token": "<BOS>",
-            "category": {
-                "type": "special",
-                "subType": "word",
-                "subSubType": "none"
-            },
-            "position": 0
-        },
-        {
-            "token": MathFunctions.addition,
-            "category": {
-                "type": "function",
-                "subType": "integer",
-                "subSubType": "execute"
-            },
-            "position": 1
-        },
-        {
-            "token": 578,
-            "category": {
-                "type": "integer",
-                "subType": "default",
-                "subSubType": "param_one"
-            },
-            "position": 2
-        },
-        {
-            "token": 119,
-            "category": {
-                "type": "integer",
-                "subType": "default",
-                "subSubType": "param_last"
-            },
-            "position": 3
-        },
-        {
-            "token": "<PAD>",
-            "category": {
-                "type": "special",
-                "subType": "word",
-                "subSubType": "none"
-            },
-            "position": 8
-        },
-        {
-            "token": "<EOS>",
-            "category": {
-                "type": "special",
-                "subType": "word",
-                "subSubType": "none"
-            },
-            "position": 9
-        }
+    sentences = [
+        "The quick brown fox jumps over the lazy dog in the meadow",
+        "Adding 3 plus 2 equals ##addition(3,2)",
     ]
+    max_sequence_length = 16
+    hidden_dim = 768
+    corpus_io_parser_output = BatchBuilder.get_batch_io_parser_output(sentences, True, max_sequence_length)
+    # Initialize category vocabulary builder instance
+    category_vocab_builder = CategoryVocabBuilder(corpus_io_parser_output)
+    category_vocab_size = len(category_vocab_builder.category_vocab_item_to_index.keys())
+
+    print(f"Output token classification head count:"
+          f" {len(category_vocab_builder.index_to_output_token_classification_head_vocab_item.keys())}\n"
+          f"Output token classification head category type:"
+          f" {category_vocab_builder.index_to_output_token_classification_head_vocab_item}")
+
+    # Initialize output vocabulary builder instance
+    output_vocab_builder = OutputVocabBuilder(
+        corpus_of_io_parser_output=corpus_io_parser_output,
+        index_to_output_token_classification_head_vocab_item=
+        category_vocab_builder.index_to_output_token_classification_head_vocab_item
+    )
+
+    index_to_output_vocabularies = output_vocab_builder.index_to_output_vocabularies
+    token_vocab_size = Tokenizer.get_token_vocab_size(index_to_output_vocabularies)
+    embedding_layer = nn.Embedding(token_vocab_size, hidden_dim)
     embeddings_manager = EmbeddingsManager(
         batch_size=2,
         n_heads=8,
-        max_sequence_length=len(item),
+        max_sequence_length=max_sequence_length,
         with_mask=True,
+        embedding_layer=embedding_layer,
+        output_vocab_builder= output_vocab_builder,
+        use_our_tokenizer= True,
     )
 
     item_tensors, mask_tensors, _ = embeddings_manager.get_sentence_combined_embeddings_with_mask(
-        item,
+        corpus_io_parser_output[0],
         "func_to_nl_translation",
     )
     print(f"items tensors shape: {item_tensors.shape}")
 
     batch_item_tensors, batch_mask_tensors, _ = embeddings_manager.get_batch_combined_embeddings_with_mask(
-        [item, item],
+        corpus_io_parser_output,
         ["func_to_nl_translation", "func_to_nl_translation"]
     )
     print(f"batch item tensors shape: {batch_item_tensors.shape}")
