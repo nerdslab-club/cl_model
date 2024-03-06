@@ -15,11 +15,10 @@ class OutputVocabItem:
 
         :return: The calculated hash
         """
-        return hash(
-            (
-                self.token,
-            )
-        )
+        if isinstance(self.token, list):
+            return hash((tuple(self.token),))
+        else:
+            return hash((self.token,))
 
     def __str__(self):
         return f"OutputTokenVocabItem( token={self.token} )"
@@ -79,8 +78,8 @@ class OutputVocabBuilder:
         """
         for classification_head_item, token in vocab_items:
             # TODO as we are converting list to string in the response parser this need to be reverted
-            if isinstance(token, list):
-                token = str(token)
+            # if isinstance(token, list):
+            #     token = str(token)
 
             output_vocabulary = self.output_token_classification_head_vocab_item_to_output_vocabularies[classification_head_item]
             output_vocabulary_index = output_vocabulary[OutputVocabBuilder.INDEX]

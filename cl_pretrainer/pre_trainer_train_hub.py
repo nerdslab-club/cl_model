@@ -213,7 +213,7 @@ def cl_pre_trainer_train(
 
 
 def save_best_model(best_accuracy, epoch, model, scheduler, total_accuracy):
-    if total_accuracy > best_accuracy and epoch > 20:
+    if total_accuracy > best_accuracy and epoch > 10:
         best_accuracy = total_accuracy
         # Saving the best model
         ClPreTrainerCheckPointManager.save_checkpoint_map(
@@ -328,15 +328,15 @@ class TestClPreTrainerTraining(unittest.TestCase):
         print(f'Selected Device: {device}')
         # Hyperparameters
         n_epochs = 40
-        batch_size = 2 if device == torch.device("cpu") else 4
+        batch_size = 1 if device == torch.device("cpu") else 1
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
-        num_layers = 2
-        dropout_p = 0.1
-        max_decoding_length = 16
-        task_generator_indexes = [3]
-        generator_range = 1 if device == torch.device("cpu") else 10
+        num_layers = 6
+        dropout_p = 0.02
+        max_decoding_length = 30
+        task_generator_indexes = [0, 1, 2, 3]
+        generator_range = 1 if device == torch.device("cpu") else 98
         number_of_batch = generator_range * len(task_generator_indexes)
         seed = 42
         add_bos_and_eos = True
@@ -460,15 +460,15 @@ class TestClPreTrainerTraining(unittest.TestCase):
         print(f'Selected Device: {device}')
 
         # Hyperparameters
-        batch_size = 2 if device == torch.device("cpu") else 4
+        batch_size = 1 if device == torch.device("cpu") else 1
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
-        num_layers = 2
-        dropout_p = 0.1
-        max_decoding_length = 16
-        task_generator_indexes = [3]
-        generator_range = 2 if device == torch.device("cpu") else 10
+        num_layers = 6
+        dropout_p = 0.02
+        max_decoding_length = 30
+        task_generator_indexes = [0, 1, 2, 3]
+        generator_range = 1 if device == torch.device("cpu") else 98
         number_of_batch = generator_range * len(task_generator_indexes)
         seed = 42
         add_bos_and_eos = True

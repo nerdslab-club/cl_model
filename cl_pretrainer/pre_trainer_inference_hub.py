@@ -264,15 +264,15 @@ class TestClPreTrainerInference(unittest.TestCase):
         # add_bos_and_eos = True
 
         # Hyperparameters
-        batch_size = 4 if device == torch.device("cpu") else 4
+        batch_size = 1 if device == torch.device("cpu") else 1
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
         num_layers = 6
-        dropout_p = 0.1
-        max_decoding_length = 24
-        task_generator_indexes = [0, 1, 2]
-        generator_range = 20 if device == torch.device("cpu") else 20
+        dropout_p = 0.02
+        max_decoding_length = 30
+        task_generator_indexes = [0, 1, 2, 3]
+        generator_range = 1 if device == torch.device("cpu") else 98
         number_of_batch = generator_range * len(task_generator_indexes)
         seed = 42
         add_bos_and_eos = True
