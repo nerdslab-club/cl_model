@@ -51,6 +51,7 @@ class PreTrainerUtils:
 
                     if current_tensor is None:
                         current_map["start"] = (i, j)
+                        # print(f'foofoo {batch_encoder_hidden_states}')
                         current_map["encoder_hidden_state"] = batch_encoder_hidden_states[i][
                             current_encoder_hidden_state_index]
                         current_tensor = x[i][j - 1].unsqueeze(0) if shift_right else x[i][j].unsqueeze(0)
@@ -150,10 +151,11 @@ class PreTrainerUtils:
                     )
                 current_token_batch = predicted_tokens_map[output_token_classification_head_vocab_item][OutputVocabBuilder.PREDICTED_TOKEN_KEY]
                 current_token_sequence = current_token_batch[i]
+                # print(f'current_token_sequence[j] is {current_token_sequence[j]}')
                 io_parser_output = {
                     Constants.CATEGORY: category_map,
                     Constants.POSITION: position,
-                    Constants.TOKEN: current_token_sequence[j]
+                    Constants.TOKEN: current_token_sequence[j].token
                 }
                 sequence_io_parser_output.append(io_parser_output)
                 position = position + 1
@@ -277,59 +279,59 @@ class PreTrainerUtils:
 
 
 if __name__ == "__main__":
-    # embedding_length = 4
-    #
-    # # Create random tensors for x and mask_tensor
-    # mask_tensor = torch.tensor([[False, False, True, True, True], [False, False, False, True, False]])
-    # x = torch.randn(mask_tensor.size(0), mask_tensor.size(1), embedding_length, dtype=torch.float32)
-    #
-    # # Create a batch of encoder hidden states
-    # batch_encoder_hidden_states = [[torch.randn(10, embedding_length)],
-    #                                [torch.randn(10, embedding_length), torch.randn(10, embedding_length)]]
-    #
-    # output = PreTrainerUtils.create_function_param_token_infos(x, mask_tensor, batch_encoder_hidden_states,
-    #                                                            shift_right=True)
-    # print(output)
+    embedding_length = 4
+
+    # Create random tensors for x and mask_tensor
+    mask_tensor = torch.tensor([[False, False, True, True, True], [False, False, False, True, False]])
+    x = torch.randn(mask_tensor.size(0), mask_tensor.size(1), embedding_length, dtype=torch.float32)
+
+    # Create a batch of encoder hidden states
+    batch_encoder_hidden_states = [[torch.randn(10, embedding_length)],
+                                   [torch.randn(10, embedding_length)]]
+
+    output = PreTrainerUtils.create_function_param_token_infos(x, mask_tensor, batch_encoder_hidden_states,
+                                                               shift_right=True)
+    print(output)
 
     # Example input
-    data = [
-        [
-            {
-                "token": "<BOS>",
-                "category": {
-                    "type": "special",
-                    "subType": "word",
-                    "subSubType": "none"
-                },
-                "position": 0
-            },
-            {
-                "token": MathFunctions.addition,
-                "category": {
-                    "type": "function",
-                    "subType": "integer",
-                    "subSubType": "execute"
-                },
-                "position": 1
-            },
-            {
-                "token": 578,
-                "category": {
-                    "type": "integer",
-                    "subType": "default",
-                    "subSubType": "param_one"
-                },
-                "position": 2
-            },
-        ],
-        [
-            {'token': 'The', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 1},
-            {'token': 'quick', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 2},
-            {'token': 'brown', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 3},
-            {'token': 'fox', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 4},
-        ]
-    ]
-
-    # Output
-    result = PreTrainerUtils.extract_tokens(data)
-    print(result)
+    # data = [
+    #     [
+    #         {
+    #             "token": "<BOS>",
+    #             "category": {
+    #                 "type": "special",
+    #                 "subType": "word",
+    #                 "subSubType": "none"
+    #             },
+    #             "position": 0
+    #         },
+    #         {
+    #             "token": MathFunctions.addition,
+    #             "category": {
+    #                 "type": "function",
+    #                 "subType": "integer",
+    #                 "subSubType": "execute"
+    #             },
+    #             "position": 1
+    #         },
+    #         {
+    #             "token": 578,
+    #             "category": {
+    #                 "type": "integer",
+    #                 "subType": "default",
+    #                 "subSubType": "param_one"
+    #             },
+    #             "position": 2
+    #         },
+    #     ],
+    #     [
+    #         {'token': 'The', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 1},
+    #         {'token': 'quick', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 2},
+    #         {'token': 'brown', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 3},
+    #         {'token': 'fox', 'category': {'type': 'word', 'subType': 'default', 'subSubType': 'none'}, 'position': 4},
+    #     ]
+    # ]
+    #
+    # # Output
+    # result = PreTrainerUtils.extract_tokens(data)
+    # print(result)

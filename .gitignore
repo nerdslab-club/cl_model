@@ -10,6 +10,7 @@ __pycache__/
 
 # saved model
 */saved_models/
+cl_pretrainer/tensorboard-10/
 
 # C extensions
 *.so

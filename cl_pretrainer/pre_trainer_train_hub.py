@@ -40,7 +40,7 @@ def cl_pre_trainer_train(
         only_language_training=0,
         device: torch.device = torch.device('cpu')
 ):
-    writer = SummaryWriter('./tensorboard/train')
+    writer = SummaryWriter('tensorboard-10/train')
     model.train(is_training)
     if not is_training:
         n_epochs = 1
@@ -209,6 +209,7 @@ def cl_pre_trainer_train(
         # epoch
     # function
     print(f"Best accuracy found: {best_accuracy}")
+    writer.close()
     return batch_category_loss, batch_category_accuracy, output_logits_map, execute_epoch
 
 
@@ -332,18 +333,18 @@ class TestClPreTrainerTraining(unittest.TestCase):
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
-        num_layers = 6
-        dropout_p = 0.02
-        max_decoding_length = 30
-        task_generator_indexes = [0, 1, 2, 3]
+        num_layers = 2
+        dropout_p = 0.1
+        max_decoding_length = 16
+        task_generator_indexes = [2, 3]
         generator_range = 1 if device == torch.device("cpu") else 98
         number_of_batch = generator_range * len(task_generator_indexes)
         seed = 42
         add_bos_and_eos = True
+        training_batch_size = 8
 
         # Initializing the data loader
         data_loader = DataLoader()
-
         data_loader_result = data_loader.create_data_loader_output(
             batch_size=batch_size,
             number_of_batch=number_of_batch,
@@ -356,6 +357,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
             seed=seed,
         )
         print(data_loader_result)
+        batch_size = training_batch_size
+
         corpus_io_parser_output = [item[Constants.IO_PARSER_OUTPUT] for item in data_loader_result]
 
         # Initialize category vocabulary builder instance
@@ -464,18 +467,18 @@ class TestClPreTrainerTraining(unittest.TestCase):
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
-        num_layers = 6
-        dropout_p = 0.02
+        num_layers = 2
+        dropout_p = 0.1
         max_decoding_length = 30
         task_generator_indexes = [0, 1, 2, 3]
         generator_range = 1 if device == torch.device("cpu") else 98
         number_of_batch = generator_range * len(task_generator_indexes)
         seed = 42
         add_bos_and_eos = True
+        training_batch_size = 8
 
         # Initializing the data loader
         data_loader = DataLoader()
-
         data_loader_result = data_loader.create_data_loader_output(
             batch_size=batch_size,
             number_of_batch=number_of_batch,
@@ -488,6 +491,8 @@ class TestClPreTrainerTraining(unittest.TestCase):
             seed=seed,
         )
         print(data_loader_result)
+        batch_size = training_batch_size
+
         corpus_io_parser_output = [item[Constants.IO_PARSER_OUTPUT] for item in data_loader_result]
         # Initialize category vocabulary builder instance
         category_vocab_builder = CategoryVocabBuilder(corpus_io_parser_output)
@@ -539,7 +544,7 @@ class TestClPreTrainerTraining(unittest.TestCase):
 
         # Load the model...
         checkpoint_map = ClPreTrainerCheckPointManager.load_checkpoint_map(
-            TestClPreTrainerTraining.PATH
+            TestClPreTrainerTraining.BEST_PATH
         )
         # Load CL-Pre-Trainer states
         cl_pre_trainer.load_saved_model_from_state_dict(
@@ -566,6 +571,13 @@ class TestClPreTrainerTraining(unittest.TestCase):
                 checkpoint_map,
                 ClPreTrainerCheckPointManager.OUTPUT_TOKEN_CLASSIFICATION_HEADS_STATE,
             ),
+        )
+
+        cl_pre_trainer.embedding_layer.load_state_dict(
+            ClPreTrainerCheckPointManager.get_checkpoint_item(
+                checkpoint_map,
+                ClPreTrainerCheckPointManager.EMBEDDINGS_LAYER_STATE,
+            )
         )
 
         print("Model loaded correctly...")

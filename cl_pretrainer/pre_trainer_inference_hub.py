@@ -31,7 +31,7 @@ def cl_pre_trainer_inference_hub(
         masks: Dict[str, List[torch.Tensor]],
         max_decoding_length: int,
 ):
-    writer = SummaryWriter('./tensorboard/inference')
+    writer = SummaryWriter('tensorboard-10/inference')
     target_batches = []
     predicted_batches = []
     output_logits_map_batches = []
@@ -62,87 +62,88 @@ def cl_pre_trainer_inference_hub(
         # range will be max_decoding_length - current_sequence_length
         # (We can add +1 but that will produce the garbage token)
         for index in range(max_decoding_length - current_sequence_length):
-            try:
-                # ~~~~~~~~~~~~~~~~~~~~~~~~~ Compute category probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                e_one = model.category_map_decoder.forward(
-                    batch_io_parser_output=truncated_src_batch_input,
-                    task_types=task_types,
-                    # future_mask=truncated_future_mask,
+            # try:
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~ Compute category probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            e_one = model.category_map_decoder.forward(
+                batch_io_parser_output=truncated_src_batch_input,
+                task_types=task_types,
+                # future_mask=truncated_future_mask,
+            )
+
+            category_probability, category_logits = model.category_map_classification_head.forward(e_one)
+            predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
+            # print(f"Predicted category probability values:"
+            #       f" {predicted_category_map}")
+
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            e_two = model.output_token_decoder.forward(
+                batch_io_parser_output=truncated_src_batch_input,
+                task_types=task_types,
+                # future_mask=truncated_future_mask,
+            )
+
+            predicted_io_parser_output_without_token = PreTrainerUtils.convert_category_map_into_io_parser_output_without_token(
+                batch_category_map=predicted_category_map,
+            )
+            batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
+                batch_io_parser_output=predicted_io_parser_output_without_token,
+            )
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  is_hub=True ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            # SO WE ARE ALSO USING output_vocab_builder.batch_decode_for_training
+            output_logits_map = model.category_router.forward(
+                e_two=e_two,
+                batch_route_ids=batch_route_ids,
+                is_hub=True,
+            )
+
+            predicted_tokens_map = {}
+            for output_classification_head_index, output_logits_item in output_logits_map.items():
+                current_head_output_probability = output_logits_item[CategoryRouter.OUTPUT_PROBABILITY]
+                # current_head_output_probability = current_head_output_probability[:, :-1]
+                current_head_predicted_output_token = output_vocab_builder.batch_decode_for_training(
+                    output_classification_head_index,
+                    current_head_output_probability.tolist(),
                 )
+                # print(f"Predicted token values for index: {output_classification_head_index} is \n"
+                #       f"{current_head_predicted_output_token}")
 
-                category_probability, category_logits = model.category_map_classification_head.forward(e_one)
-                predicted_category_map = category_vocab_builder.batch_decode(category_probability.tolist())
-                # print(f"Predicted category probability values:"
-                #       f" {predicted_category_map}")
+                # Get the output token classification vocab item from index
+                current_output_token_classification_head_vocab_item = \
+                    output_vocab_builder.index_to_output_vocabularies[output_classification_head_index][
+                        OutputVocabBuilder.OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM]
 
-                # ~~~~~~~~~~~~~~~~~~~~~~~~~~ Compute output token probability ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                e_two = model.output_token_decoder.forward(
-                    batch_io_parser_output=truncated_src_batch_input,
-                    task_types=task_types,
-                    # future_mask=truncated_future_mask,
-                )
+                # Add item to predicted tokens map using the output token classification head vocab item as key
+                predicted_tokens_map[current_output_token_classification_head_vocab_item] = {
+                    OutputVocabBuilder.PREDICTED_TOKEN_KEY: current_head_predicted_output_token,
+                    OutputVocabBuilder.INDEX: output_classification_head_index,
+                }
+            # print("\n")
 
-                predicted_io_parser_output_without_token = PreTrainerUtils.convert_category_map_into_io_parser_output_without_token(
-                    batch_category_map=predicted_category_map,
-                )
-                batch_route_ids = category_vocab_builder.batch_encoder_output_token_classification_head_vocab_items(
-                    batch_io_parser_output=predicted_io_parser_output_without_token,
-                )
-                # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~  is_hub=True ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                # SO WE ARE ALSO USING output_vocab_builder.batch_decode_for_training
-                output_logits_map = model.category_router.forward(
-                    e_two=e_two,
-                    batch_route_ids=batch_route_ids,
-                    is_hub=True,
-                )
+            # Removed the teacher forcing and added the prediction to the src batch
+            predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output_hub(predicted_category_map,
+                                                                                       predicted_tokens_map,
+                                                                                       start_from=1)
+            print(f'foofoo {predicted_io_parser_output}')
 
-                predicted_tokens_map = {}
-                for output_classification_head_index, output_logits_item in output_logits_map.items():
-                    current_head_output_probability = output_logits_item[CategoryRouter.OUTPUT_PROBABILITY]
-                    # current_head_output_probability = current_head_output_probability[:, :-1]
-                    current_head_predicted_output_token = output_vocab_builder.batch_decode_for_training(
-                        output_classification_head_index,
-                        current_head_output_probability.tolist(),
-                    )
-                    # print(f"Predicted token values for index: {output_classification_head_index} is \n"
-                    #       f"{current_head_predicted_output_token}")
+            truncated_src_batch = PreTrainerUtils.add_prediction_to_truncated_list(
+                predicted_io_parser_output,
+                truncated_src_batch,
+                current_sequence_length - 1 + index,
+            )
+            truncated_src_batch_input = copy.deepcopy(truncated_src_batch)
+            truncated_src_batch_input = [BatchBuilder.add_padding_and_eos(
+                sequence_list,
+                max_decoding_length,
+                add_bos_and_eos=True,
+                is_eos_finishing_token=False,
+            ) for sequence_list in truncated_src_batch_input]
 
-                    # Get the output token classification vocab item from index
-                    current_output_token_classification_head_vocab_item = \
-                        output_vocab_builder.index_to_output_vocabularies[output_classification_head_index][
-                            OutputVocabBuilder.OUTPUT_TOKEN_CLASSIFICATION_HEAD_VOCAB_ITEM]
+            if truncated_src_batch[0][-1][Constants.TOKEN] == SpecialTokens.ENDING.value:
+                break
+            # truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length + index + 1)
 
-                    # Add item to predicted tokens map using the output token classification head vocab item as key
-                    predicted_tokens_map[current_output_token_classification_head_vocab_item] = {
-                        OutputVocabBuilder.PREDICTED_TOKEN_KEY: current_head_predicted_output_token,
-                        OutputVocabBuilder.INDEX: output_classification_head_index,
-                    }
-                # print("\n")
-
-                # Removed the teacher forcing and added the prediction to the src batch
-                predicted_io_parser_output = PreTrainerUtils.recreate_io_parser_output_hub(predicted_category_map,
-                                                                                           predicted_tokens_map,
-                                                                                           start_from=1)
-
-                truncated_src_batch = PreTrainerUtils.add_prediction_to_truncated_list(
-                    predicted_io_parser_output,
-                    truncated_src_batch,
-                    current_sequence_length - 1 + index,
-                )
-                truncated_src_batch_input = copy.deepcopy(truncated_src_batch)
-                truncated_src_batch_input = [BatchBuilder.add_padding_and_eos(
-                    sequence_list,
-                    max_decoding_length,
-                    add_bos_and_eos=True,
-                    is_eos_finishing_token=False,
-                ) for sequence_list in truncated_src_batch_input]
-
-                if truncated_src_batch[0][-1][Constants.TOKEN] == SpecialTokens.ENDING.value:
-                    break
-                # truncated_future_mask = BatchBuilder.construct_future_mask(current_sequence_length + index + 1)
-
-            except Exception as e:
-                print(f"An error occurred for batch: {i} word: {index} error: {e}")
+            # except Exception as e:
+            #     print(f"An error occurred for batch: {i} word: {index} error: {e}")
 
         # Removing <BOS> from both tgt and predicted sentences
         tgt_batch = [sequence_list[1:len(truncated_src_batch[i])] for i, sequence_list in enumerate(tgt_batch)]
@@ -151,12 +152,12 @@ def cl_pre_trainer_inference_hub(
         predicted_batches.append(truncated_src_batch)
         output_logits_map_batches.append(output_logits_map)
         num_iters += 1
-        if num_iters == 16:
+        if num_iters == 2:
             break
         # break
 
     calculate_bleu_score(target_batches, predicted_batches, writer)
-    calculate_perplexity_score(target_batches, output_logits_map_batches, output_vocab_builder)
+    calculate_perplexity_score(target_batches, output_logits_map_batches, output_vocab_builder, writer)
     print_response(predicted_batches)
     print("DONE")
 
@@ -206,8 +207,8 @@ def calculate_accuracy(target_batch: List[List[dict]], predicted_batch: List[Lis
             total_predictions += 1
             if target_output_vocab == predicted_output_vocab:
                 correct_predictions += 1
-            current_sentence_accuracy = (correct_predictions / total_predictions) * 100
-            batch_accuracies.append(current_sentence_accuracy)
+        current_sentence_accuracy = (correct_predictions / total_predictions)
+        batch_accuracies.append(current_sentence_accuracy)
 
     inference_batch_accuracy = sum(batch_accuracies)/len(target_batch)
     writer.add_scalar(WriterUtils.INFERENCE_BATCH_ACCURACY,
@@ -241,7 +242,7 @@ def calculate_bleu_score(target_batches: List[List[List[dict]]], predicted_batch
 
 
 class TestClPreTrainerInference(unittest.TestCase):
-    PATH = "./saved_models/cl_pre_trainer_generative_best_v4.pth"
+    PATH = "./saved_models/cl_pre_trainer_generative_best_gar.pth"
     accepted_loss_threshold = 0.09
     accepted_accuracy_threshold = 0.99
 
@@ -249,28 +250,14 @@ class TestClPreTrainerInference(unittest.TestCase):
         device = (torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
         print(f'Selected Device: {device}')
 
-        # # Hyperparameters
-        # batch_size = 2 if device == torch.device("cpu") else 4
-        # num_heads = 8
-        # hidden_dim = 768
-        # ff_dim = 2048
-        # num_layers = 2
-        # dropout_p = 0.1
-        # max_decoding_length = 16
-        # task_generator_indexes = [3]
-        # generator_range = 2 if device == torch.device("cpu") else 10
-        # number_of_batch = generator_range * len(task_generator_indexes)
-        # seed = 42
-        # add_bos_and_eos = True
-
         # Hyperparameters
         batch_size = 1 if device == torch.device("cpu") else 1
         num_heads = 8
         hidden_dim = 768
         ff_dim = 2048
-        num_layers = 6
-        dropout_p = 0.02
-        max_decoding_length = 30
+        num_layers = 2
+        dropout_p = 0.1
+        max_decoding_length = 16
         task_generator_indexes = [0, 1, 2, 3]
         generator_range = 1 if device == torch.device("cpu") else 98
         number_of_batch = generator_range * len(task_generator_indexes)
@@ -334,7 +321,7 @@ class TestClPreTrainerInference(unittest.TestCase):
             dropout_p=dropout_p,
             category_vocab_size=category_vocab_size,
             output_vocab_builder=output_vocab_builder,
-            use_our_tokenizer=True,
+            use_our_tokenizer=False,
         )
         cl_pre_trainer.eval()
 

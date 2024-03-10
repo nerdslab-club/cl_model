@@ -20,6 +20,7 @@ class ClPreTrainerCheckPointManager:
     CATEGORY_MAP_DECODER_BLOCKS_STATE = "category_map_decoder_blocks_state"
     OUTPUT_TOKEN_DECODER_BLOCKS_STATE = "output_token_decoder_blocks_state"
     OUTPUT_TOKEN_CLASSIFICATION_HEADS_STATE = "output_token_classification_map_heads_state"
+    EMBEDDINGS_LAYER_STATE = "embeddings_layer_state"
 
     @staticmethod
     def __get_category_router_checkpoint_map(
@@ -50,6 +51,7 @@ class ClPreTrainerCheckPointManager:
                 model.category_map_decoder.category_map_decoder_blocks.state_dict(),
                 model.output_token_decoder.output_token_decoder_blocks.state_dict(),
                 cl_pre_trainer_output_token_classification_heads_state,
+                model.embedding_layer.state_dict(),
             ),
             path,
         )
@@ -75,6 +77,7 @@ class ClPreTrainerCheckPointManager:
         cl_pre_trainer_category_map_decoder_blocks_state: dict,
         cl_pre_trainer_output_token_decoder_blocks_state: dict,
         cl_pre_trainer_output_token_classification_heads_state: dict,
+        cl_pre_trainer_embeddings_layer_state: dict,
     ) -> dict:
         return {
             ClPreTrainerCheckPointManager.EPOCH: epoch,
@@ -87,4 +90,5 @@ class ClPreTrainerCheckPointManager:
             ClPreTrainerCheckPointManager.CATEGORY_MAP_DECODER_BLOCKS_STATE: cl_pre_trainer_category_map_decoder_blocks_state,
             ClPreTrainerCheckPointManager.OUTPUT_TOKEN_DECODER_BLOCKS_STATE: cl_pre_trainer_output_token_decoder_blocks_state,
             ClPreTrainerCheckPointManager.OUTPUT_TOKEN_CLASSIFICATION_HEADS_STATE: cl_pre_trainer_output_token_classification_heads_state,
+            ClPreTrainerCheckPointManager.EMBEDDINGS_LAYER_STATE: cl_pre_trainer_embeddings_layer_state
         }

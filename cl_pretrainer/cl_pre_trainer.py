@@ -47,7 +47,9 @@ class ClPreTrainer(nn.Module):
         self.index_to_output_vocabularies = output_vocab_builder.index_to_output_vocabularies
         token_vocab_size = Tokenizer.get_token_vocab_size(self.index_to_output_vocabularies)
         # print(f"Token vocab size: {token_vocab_size}")
-        embedding_layer = nn.Embedding(token_vocab_size, hidden_dim)
+        self.embedding_layer = nn.Embedding(token_vocab_size, hidden_dim, device=self.device)
+        # embedding_layer.state_dict()
+        # self.embedding_layer.load_state_dict()
 
         # Creating embeddings manager instance
         self.embeddings_manager = EmbeddingsManager(
@@ -55,7 +57,7 @@ class ClPreTrainer(nn.Module):
             n_heads=num_heads,
             max_sequence_length=max_decoding_length,
             with_mask=False,
-            embedding_layer=embedding_layer,
+            embedding_layer=self.embedding_layer,
             output_vocab_builder=output_vocab_builder,
             use_our_tokenizer=use_our_tokenizer,
         )

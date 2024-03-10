@@ -334,19 +334,19 @@ class EmbeddingsManager:
         if category_type == CategoryType.FUNCTION.value:
             token = FunctionManager.get_doc_string_of_function(token)
 
-        if self.use_our_tokenizer:
+        if self.use_our_tokenizer and category_type != CategoryType.FUNCTION.value:
             # print(f'Current io_parser_output_item is: {io_parser_output_item}')
             current_token_index = Tokenizer.get_index_of_token(
                     output_vocab_builder=self.output_vocab_builder,
                     io_parser_output_item=io_parser_output_item,
                 )
             # print(f'Current token index: {current_token_index}')
-            current_tensor = torch.tensor(current_token_index, dtype=torch.long)
+            current_tensor = torch.tensor(current_token_index, dtype=torch.long).to(self.device)
 
             # print(f'Current embedded tensor is: {current_tensor}')
             return self.embedding_layer.forward(
                 current_tensor
-            )
+            ).to(self.device)
         else:
             return self.initial_word_encoder.get_sentence_embedding(
                 str(token),
