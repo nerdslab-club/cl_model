@@ -2,6 +2,8 @@ import math
 
 import torch
 from torch import Tensor
+import matplotlib.pyplot as plt
+import numpy as np
 
 
 class ALiBiBiEncoder:
@@ -84,9 +86,36 @@ def _test_alibi():
     print(f"distance matrix shape {distance_matrix.shape} \n {distance_matrix}")
 
     bias = ALiBiBiEncoder.get_alibi_biases(
-        batch_size=2, n_heads=8, sequence_length=5, with_mask=False
+        batch_size=1, n_heads=8, sequence_length=5, with_mask=False
     )
     print(f"bias shape {bias.shape} \n {bias}")
+
+    # Convert tensor to NumPy array
+    array_data = bias[0].numpy()
+
+    # Create a 4x2 grid of subplots
+    fig, axes = plt.subplots(2, 4, figsize=(24, 10))
+
+    # for i in range(array_data.shape[0]):
+    #     plt.imshow(array_data[i], cmap='viridis', interpolation='nearest')
+    #     plt.colorbar()
+    #     plt.show()
+
+    for i, ax in enumerate(axes.flat):
+        im = ax.imshow(array_data[i], cmap='viridis', interpolation='nearest')
+        ax.set_title(f'Attention head {i + 1}')
+        cbar = fig.colorbar(im, ax=ax)
+        # cbar.set_label('Value')  #
+        # ax.axis('off')  # Turn off axis labels
+
+    # Adjust layout to prevent overlap
+    plt.tight_layout()
+    plt.show()
+
+    # Create the heatmap plot
+    # plt.imshow(array_data, cmap='viridis', interpolation='nearest')
+    # plt.colorbar()
+    # plt.show()
 
 
 if __name__ == "__main__":
