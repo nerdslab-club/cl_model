@@ -21,6 +21,7 @@ class DataGenerator:
             self,
             batch_size: int,
             number_of_batch: int,
+            param_variation: int = 1,
             task_generator_indexes: list[int] | None = None,
             generator_indexes: list[int] | None = None,
             identifier: int | None = None,
@@ -31,6 +32,7 @@ class DataGenerator:
         This function generates sample for training either randomly or in a paginated way if task_generator_index,
         generator_index and identifier is provided
 
+        :param param_variation: for range in param_variation new samples will be added.
         :param seed: seed for generating random indexes
         :param shuffle: shuffle the list before return is true.
         :param batch_size: Size of the batch
@@ -47,6 +49,7 @@ class DataGenerator:
         if task_generator_indexes is not None and generator_indexes is not None:
             assert all(0 <= x <= 3 for x in task_generator_indexes), "task_generator_indexes values should be between 0 and 3."
             generator_indexes = [item for item in generator_indexes for _ in range(len(task_generator_indexes))]
+            # print(generator_indexes)
 
         samples = []
         # Adding same generator index len(task_generator_indexes) times,
@@ -62,12 +65,16 @@ class DataGenerator:
             if task_generator_indexes is not None and generator_indexes is not None:
                 current_generator_index = generator_indexes[i % len(
                     generator_indexes)] % current_task_sample_generator.get_length_of_sample_generators()
-            samples_from_this_generator = current_task_sample_generator.get_next_random_sample(
-                batch_size=batch_size,
-                generator_index=current_generator_index,
-                identifier=identifier,
-            )
-            samples.extend(samples_from_this_generator)
+
+            for j in range(param_variation):
+                param_seed = seed + j
+                samples_from_this_generator = current_task_sample_generator.get_next_random_sample(
+                    batch_size=batch_size,
+                    generator_index=current_generator_index,
+                    identifier=identifier,
+                    seed=param_seed,
+                )
+                samples.extend(samples_from_this_generator)
 
         if shuffle:
             random.seed(seed)
@@ -88,14 +95,15 @@ class DataGeneratorTest(unittest.TestCase):
         # number_of_batch = len(task_generator_indexes) * len(generator_indexes) but not a hard constraint
         generated_batch = data_generator.generate_batch_of(
             batch_size=4,
-            number_of_batch=6,
-            task_generator_indexes=[0, 1, 2],
-            generator_indexes=[0, 1],
+            number_of_batch=40,
+            param_variation=10,
+            task_generator_indexes=[0, 1, 2, 3],
+            generator_indexes=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
             identifier=0,
-            shuffle=True,
+            shuffle=False,
         )
         print(generated_batch)
-        self.assertEqual(len(generated_batch), 24)
+        self.assertEqual(len(generated_batch), 1600)
 
 
 if __name__ == "__main__":
