@@ -5,7 +5,7 @@ from cl_data.io_parser.io_parser_utility import split_string_custom
 from cl_data.src.constants import Constants
 from cl_data.src.random_value_generator import RandomValueGenerator
 from cl_pretrainer.batch_builder import BatchBuilder
-from data_generator import DataGenerator
+from data_loader.data_generator import DataGenerator
 
 
 class DataLoader:
@@ -147,6 +147,21 @@ class DataLoader:
             fold_data.append({DataLoader.TRAIN: train_fold, DataLoader.VALIDATION: val_fold})
 
         return fold_data
+
+    @staticmethod
+    def split_train_validation_test(data: list[dict], shuffle: bool, seed: int) -> dict[str, list[dict]]:
+        train_split_index = int(len(data) * 0.8)
+        validation_split_index = int(len(data) * 0.9)
+
+        train_data = data[:train_split_index]
+        validation_data = data[train_split_index: validation_split_index]
+        test_data = data[validation_split_index:]
+        if shuffle:
+            random.seed(seed)
+            random.shuffle(train_data)
+            random.shuffle(test_data)
+            random.shuffle(validation_data)
+        return {DataLoader.TRAIN: train_data, DataLoader.TEST: test_data, DataLoader.VALIDATION: validation_data}
 
 
 class DataLoaderTest(unittest.TestCase):

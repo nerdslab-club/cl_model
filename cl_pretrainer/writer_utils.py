@@ -3,7 +3,9 @@ from vocabulary_builder.category_vocabulary_builder import OutputTokenClassifica
 
 class WriterUtils:
     AVG_LOSS_TAG = 'Loss: Average'
+    AVG_VALIDATION_LOSS_TAG = 'Validation Loss: Average'
     AVG_ACCURACY_TAG = 'Accuracy: Average'
+    AVG_VALIDATION_ACCURACY_TAG = 'Validation Accuracy: Average'
     CATEGORY_MAP_LOSS_TAG = 'Loss: Category Map'
     CATEGORY_MAP_ACCURACY_TAG = 'Accuracy: Category Map'
     LEARNING_RATE = 'Learning Rate'

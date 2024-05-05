@@ -264,19 +264,20 @@ class TestClPreTrainerInference(unittest.TestCase):
         seed = 42
         add_bos_and_eos = True
         training_batch_size = 1
+        param_variation = 10
 
         # Initializing the data loader
         data_loader = DataLoader()
-
         data_loader_result = data_loader.create_data_loader_output(
             batch_size=batch_size,
             number_of_batch=number_of_batch,
+            param_variation=param_variation,
             add_bos_and_eos=add_bos_and_eos,
             max_sequence_length=max_decoding_length,
             task_generator_indexes=task_generator_indexes,
             generator_indexes=[i for i in range(generator_range)],
             identifier=0,
-            shuffle=True,
+            shuffle=False,
             seed=seed,
         )
         # print(data_loader_result)
@@ -302,9 +303,10 @@ class TestClPreTrainerInference(unittest.TestCase):
         output_vocabularies = output_vocab_builder.index_to_output_vocabularies
         print(f"Output vocabularies count: {len(output_vocabularies.keys())}")
 
+        train_validation_test = DataLoader.split_train_validation_test(data_loader_result, shuffle=True, seed=seed)
         # Creating the batch and masks
         batches, masks = BatchBuilder.construct_batches_for_cl_pre_trainer_with_data_loader(
-            data_loader_result,
+            train_validation_test[DataLoader.TEST],
             batch_size=batch_size,
             max_decoder_sequence_length=max_decoding_length,
             is_generative_training=False,
